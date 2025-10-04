@@ -8,6 +8,7 @@ import (
 	"github.com/nemanja-m/gomr/pkg/jobs"
 	"github.com/nemanja-m/gomr/pkg/local"
 
+	_ "github.com/nemanja-m/gomr/examples/grep"
 	_ "github.com/nemanja-m/gomr/examples/wordcount"
 )
 
