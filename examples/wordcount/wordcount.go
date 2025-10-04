@@ -9,25 +9,52 @@ import (
 	"github.com/nemanja-m/gomr/pkg/jobs"
 )
 
+const name = "wordcount"
+
 func init() {
-	jobs.Register("wordcount", jobs.Job{
-		Map:    Map,
-		Reduce: Reduce,
+	jobs.Register(name, func() core.Job {
+		return &WordCountJob{}
 	})
 }
 
-func Map(_, line string) []core.KeyValue {
-	var kvs []core.KeyValue
-	for word := range strings.SplitSeq(line, " ") {
-		word = strings.ToLower(word)
+type WordCountJob struct {
+	caseSensitive bool
+	pattern       *regexp.Regexp
+}
 
+func (wc *WordCountJob) Name() string {
+	return name
+}
+
+func (wc *WordCountJob) Describe() string {
+	return "counts occurrences of each word in the input text"
+}
+
+func (wc *WordCountJob) Configure(config map[string]string) error {
+	if cs, ok := config["case-sensitive"]; ok && (strings.ToLower(cs) == "true" || cs == "1") {
+		wc.caseSensitive = true
+	}
+	wc.pattern = regexp.MustCompile(`[^\p{L}\p{N}]+`)
+	return nil
+}
+
+func (wc *WordCountJob) Validate() error {
+	return nil
+}
+
+func (wc *WordCountJob) Map(_, line string) []core.KeyValue {
+	var kvs []core.KeyValue
+	for word := range strings.FieldsSeq(line) {
 		// Keep alphanumeric UTF-8 characters
-		pattern := regexp.MustCompile(`[^\p{L}\p{N}]+`)
-		word = pattern.ReplaceAllString(word, "")
+		word = wc.pattern.ReplaceAllString(word, "")
 		word = strings.TrimSpace(word)
 
 		if word == "" {
 			continue
+		}
+
+		if !wc.caseSensitive {
+			word = strings.ToLower(word)
 		}
 
 		kvs = append(kvs, core.KeyValue{Key: word, Value: "1"})
@@ -35,7 +62,7 @@ func Map(_, line string) []core.KeyValue {
 	return kvs
 }
 
-func Reduce(word string, counts []string) core.KeyValue {
+func (wc *WordCountJob) Reduce(word string, counts []string) core.KeyValue {
 	total := 0
 	for _, count := range counts {
 		val, _ := strconv.Atoi(count)

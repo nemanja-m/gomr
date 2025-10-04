@@ -2,9 +2,10 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"strings"
 
-	"github.com/nemanja-m/gomr/pkg/core"
 	"github.com/nemanja-m/gomr/pkg/jobs"
 	"github.com/nemanja-m/gomr/pkg/local"
 
@@ -13,16 +14,38 @@ import (
 )
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
-
 	var (
-		input    = flag.String("input", "", "input files glob pattern")
-		output   = flag.String("output", "", "output directory")
-		reducers = flag.Int("reducers", 4, "number of reducers (overrides default)")
-		jobName  = flag.String("job", "", "job to run (e.g., wordcount, grep)")
+		jobName     = flag.String("job", "", "Job to run: "+strings.Join(jobs.List(), ", "))
+		input       = flag.String("input", "", "Input files glob pattern")
+		output      = flag.String("output", "", "Output directory")
+		reducers    = flag.Int("reducers", 4, "Number of reducers (overrides default)")
+		jobArgs     = flag.String("args", "", "Job arguments (key1=val1,key2=val2)")
+		listJobs    = flag.Bool("list", false, "List available jobs")
+		describeJob = flag.String("describe", "", "Describe the specified job")
 	)
 	flag.Parse()
 
+	if *listJobs {
+		fmt.Printf("\n")
+		for _, name := range jobs.List() {
+			desc, _ := jobs.Describe(name)
+			fmt.Printf("%s: %s\n", name, desc)
+		}
+		return
+	}
+
+	if *describeJob != "" {
+		desc, err := jobs.Describe(*describeJob)
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(desc)
+		return
+	}
+
+	if *jobName == "" {
+		log.Fatal("Job name must be specified using the -job flag")
+	}
 	if *input == "" {
 		log.Fatal("Input pattern must be specified using the -input flag")
 	}
@@ -33,17 +56,16 @@ func main() {
 		log.Fatal("Number of reducers must be >= 0")
 	}
 
-	job, err := jobs.Get(*jobName)
+	job, err := jobs.Build(*jobName, parseJobArgs(*jobArgs))
 	if err != nil {
-		log.Fatalf("Unknown job: '%s'. Available jobs: %v", *jobName, jobs.List())
+		log.Fatal(err)
 	}
 
-	config := core.JobConfig{
+	config := local.Config{
+		Job:         job,
 		Input:       *input,
 		Output:      *output,
 		NumReducers: *reducers,
-		MapFunc:     job.Map,
-		ReduceFunc:  job.Reduce,
 	}
 
 	engine := local.NewEngine(config)
@@ -61,4 +83,20 @@ func main() {
 	}
 
 	log.Println("Job completed successfully")
+}
+
+func parseJobArgs(args string) map[string]string {
+	config := make(map[string]string)
+	if args == "" {
+		return config
+	}
+
+	for pair := range strings.SplitSeq(args, ",") {
+		kv := strings.SplitN(pair, "=", 2)
+		if len(kv) == 2 {
+			config[kv[0]] = kv[1]
+		}
+	}
+
+	return config
 }

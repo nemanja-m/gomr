@@ -10,11 +10,18 @@ import (
 	"github.com/nemanja-m/gomr/pkg/core"
 )
 
-type Engine struct {
-	config core.JobConfig
+type Config struct {
+	Job         core.Job
+	Input       string
+	Output      string
+	NumReducers int
 }
 
-func NewEngine(config core.JobConfig) *Engine {
+type Engine struct {
+	config Config
+}
+
+func NewEngine(config Config) *Engine {
 	return &Engine{config: config}
 }
 
@@ -60,7 +67,7 @@ func (e *Engine) readAllLines() ([]Line, error) {
 func (e *Engine) runMap(lines []Line) []core.KeyValue {
 	var results []core.KeyValue
 	for _, line := range lines {
-		kvs := e.config.MapFunc(fmt.Sprintf("%s:%d", line.Filename, line.Number), line.Text)
+		kvs := e.config.Job.Map(fmt.Sprintf("%s:%d", line.Filename, line.Number), line.Text)
 		results = append(results, kvs...)
 	}
 	return results
@@ -104,7 +111,7 @@ func (e *Engine) reducePartition(sortedPartition []core.KeyValue) []core.KeyValu
 		}
 
 		// Streaming reduce
-		results = append(results, e.config.ReduceFunc(key, values))
+		results = append(results, e.config.Job.Reduce(key, values))
 	}
 
 	return results
