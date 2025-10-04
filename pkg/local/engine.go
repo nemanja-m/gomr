@@ -3,6 +3,7 @@ package local
 import (
 	"cmp"
 	"fmt"
+	"os"
 	"path/filepath"
 	"slices"
 
@@ -110,6 +111,13 @@ func (e *Engine) reducePartition(sortedPartition []core.KeyValue) []core.KeyValu
 }
 
 func (e *Engine) writeResults(results map[int][]core.KeyValue) error {
+	// Ensure output directory exists
+	dir := filepath.Dir(filepath.Join(e.config.Output, "dummy"))
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory tree: %w", err)
+	}
+
+	// Write each partition to a separate file
 	for part, records := range results {
 		partFilename := fmt.Sprintf("part-%04d.tsv", part)
 		outputPath := filepath.Join(e.config.Output, partFilename)
