@@ -129,12 +129,12 @@ func (e *Engine) writeResults(results map[int][]core.KeyValue) error {
 
 	// Write each partition to a separate file
 	for part, records := range results {
-		partFilename := fmt.Sprintf("part-%04d.tsv", part)
+		partFilename := fmt.Sprintf("part-%04d.txt", part)
 		outputPath := filepath.Join(e.config.Output, partFilename)
 
 		lines := make([]string, len(records))
 		for _, record := range records {
-			lines = append(lines, fmt.Sprintf("%s\t%s\n", record.Key, record.Value))
+			lines = append(lines, fmt.Sprintf("%s %s\n", record.Key, record.Value))
 		}
 
 		if err := WriteLines(outputPath, lines); err != nil {

@@ -65,5 +65,5 @@ func (g *GrepJob) Map(key, line string) []core.KeyValue {
 }
 
 func (g *GrepJob) Reduce(key string, values []string) core.KeyValue {
-	return core.KeyValue{Key: key, Value: values[0]}
+	return core.KeyValue{Key: key, Value: strings.TrimSpace(values[0])}
 }
