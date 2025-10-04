@@ -6,11 +6,19 @@ import (
 	"strings"
 
 	"github.com/nemanja-m/gomr/pkg/core"
+	"github.com/nemanja-m/gomr/pkg/jobs"
 )
+
+func init() {
+	jobs.Register("wordcount", jobs.Job{
+		Map:    Map,
+		Reduce: Reduce,
+	})
+}
 
 func Map(_, line string) []core.KeyValue {
 	var kvs []core.KeyValue
-	for _, word := range strings.Split(line, " ") {
+	for word := range strings.SplitSeq(line, " ") {
 		word = strings.ToLower(word)
 
 		// Keep alphanumeric UTF-8 characters

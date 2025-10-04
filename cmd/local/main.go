@@ -4,17 +4,22 @@ import (
 	"flag"
 	"log"
 
-	"github.com/nemanja-m/gomr/examples/wordcount"
 	"github.com/nemanja-m/gomr/pkg/core"
+	"github.com/nemanja-m/gomr/pkg/jobs"
 	"github.com/nemanja-m/gomr/pkg/local"
+
+	_ "github.com/nemanja-m/gomr/examples/wordcount"
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
-	input := flag.String("input", "", "input files glob pattern")
-	output := flag.String("output", "", "output directory")
-	reducers := flag.Int("reducers", 4, "number of reducers (overrides default)")
+	var (
+		input    = flag.String("input", "", "input files glob pattern")
+		output   = flag.String("output", "", "output directory")
+		reducers = flag.Int("reducers", 4, "number of reducers (overrides default)")
+		jobName  = flag.String("job", "", "job to run (e.g., wordcount, grep)")
+	)
 	flag.Parse()
 
 	if *input == "" {
@@ -27,18 +32,24 @@ func main() {
 		log.Fatal("Number of reducers must be >= 0")
 	}
 
+	job, err := jobs.Get(*jobName)
+	if err != nil {
+		log.Fatalf("Unknown job: '%s'. Available jobs: %v", *jobName, jobs.List())
+	}
+
 	config := core.JobConfig{
 		Input:       *input,
 		Output:      *output,
 		NumReducers: *reducers,
-		MapFunc:     wordcount.Map,
-		ReduceFunc:  wordcount.Reduce,
+		MapFunc:     job.Map,
+		ReduceFunc:  job.Reduce,
 	}
 
 	engine := local.NewEngine(config)
 
 	log.Printf(
-		"Starting job with input: %s, output: %s, reducers: %d",
+		"Starting job: %s with input: %s, output: %s, reducers: %d",
+		*jobName,
 		config.Input,
 		config.Output,
 		config.NumReducers,
