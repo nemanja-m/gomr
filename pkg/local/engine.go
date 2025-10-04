@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"slices"
 
+	"github.com/bmatcuk/doublestar/v4"
+
 	"github.com/nemanja-m/gomr/pkg/core"
 )
 
@@ -43,12 +45,14 @@ func (e *Engine) Run() error {
 }
 
 func (e *Engine) readAllLines() ([]Line, error) {
-	matches, err := filepath.Glob(e.config.Input)
+	pattern := e.config.Input
+
+	matches, err := doublestar.FilepathGlob(pattern)
 	if err != nil {
 		return nil, err
 	}
-	if matches == nil {
-		return nil, fmt.Errorf("no files matched the input pattern: %s", e.config.Input)
+	if len(matches) == 0 {
+		return nil, fmt.Errorf("no files matched the input pattern: %s", pattern)
 	}
 
 	var allLines []Line
@@ -57,7 +61,6 @@ func (e *Engine) readAllLines() ([]Line, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		allLines = append(allLines, lines...)
 	}
 
