@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"runtime"
 	"strings"
 
 	"github.com/nemanja-m/gomr/pkg/jobs"
@@ -18,6 +19,7 @@ func main() {
 		jobName     = flag.String("job", "", "Job to run: "+strings.Join(jobs.List(), ", "))
 		input       = flag.String("input", "", "Input files glob pattern")
 		output      = flag.String("output", "", "Output directory")
+		mappers     = flag.Int("mappers", runtime.NumCPU(), "Number of mappers (overrides default)")
 		reducers    = flag.Int("reducers", 4, "Number of reducers (overrides default)")
 		jobArgs     = flag.String("args", "", "Job arguments (key1=val1,key2=val2)")
 		listJobs    = flag.Bool("list", false, "List available jobs")
@@ -52,6 +54,9 @@ func main() {
 	if *output == "" {
 		log.Fatal("Output directory must be specified using the -output flag")
 	}
+	if *mappers <= 0 {
+		log.Fatal("Number of mappers must be >= 0")
+	}
 	if *reducers <= 0 {
 		log.Fatal("Number of reducers must be >= 0")
 	}
@@ -65,6 +70,7 @@ func main() {
 		Job:         job,
 		Input:       *input,
 		Output:      *output,
+		NumMappers:  *mappers,
 		NumReducers: *reducers,
 	}
 
