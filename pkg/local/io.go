@@ -29,7 +29,17 @@ func FindFiles(pattern string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return matches, nil
+	var files []string
+	for _, name := range matches {
+		info, err := os.Lstat(name)
+		if err != nil {
+			continue
+		}
+		if info.Mode().IsRegular() {
+			files = append(files, name)
+		}
+	}
+	return files, nil
 }
 
 func ReadLines(filePath string, bufferSize ...int) ([]Line, error) {
