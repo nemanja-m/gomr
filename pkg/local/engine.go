@@ -35,19 +35,29 @@ func (e *Engine) Run() error {
 	}
 	defer os.RemoveAll(shuffleDir)
 
-	// Run map tasks
+	// Partition input files so that each mapper gets a roughly equal share.
+	// This ensures we create exactly NumMappers map tasks.
 	inputFiles, err := FindFiles(e.config.Input)
 	if err != nil {
 		return err
 	}
+	var inputPartitions = make(map[int][]string)
+	for i, file := range inputFiles {
+		mapperId := i % e.config.NumMappers
+		inputPartitions[mapperId] = append(inputPartitions[mapperId], file)
+	}
 
+	// Run map tasks
 	mapperPool := NewPool(e.config.NumMappers)
 	mapperPool.Start()
-
-	for mapperId, file := range inputFiles {
+	for mapperId := 0; mapperId < e.config.NumMappers; mapperId++ {
+		files := inputPartitions[mapperId]
+		if len(files) == 0 {
+			continue
+		}
 		mapperPool.Submit(func() {
 			log.Printf("Starting map task %d", mapperId)
-			if err := e.runMapTask(mapperId, shuffleDir, file); err != nil {
+			if err := e.runMapTask(mapperId, shuffleDir, files); err != nil {
 				log.Printf("Error running map task %d: %v", mapperId, err)
 			} else {
 				log.Printf("Completed map task %d", mapperId)
@@ -74,10 +84,14 @@ func (e *Engine) Run() error {
 	return nil
 }
 
-func (e *Engine) runMapTask(mapperId int, shuffleDir, filePath string) error {
-	lines, err := ReadLines(filePath)
-	if err != nil {
-		return err
+func (e *Engine) runMapTask(mapperId int, shuffleDir string, filePaths []string) error {
+	var lines []Line
+	for _, filePath := range filePaths {
+		fileLines, err := ReadLines(filePath)
+		if err != nil {
+			return err
+		}
+		lines = append(lines, fileLines...)
 	}
 
 	// Map input lines to key-value pairs
