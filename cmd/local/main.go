@@ -24,8 +24,14 @@ func main() {
 		jobArgs     = flag.String("args", "", "Job arguments (key1=val1,key2=val2)")
 		listJobs    = flag.Bool("list", false, "List available jobs")
 		describeJob = flag.String("describe", "", "Describe the specified job")
+		help        = flag.Bool("help", false, "Print usage information")
 	)
 	flag.Parse()
+
+	if *help {
+		flag.Usage()
+		return
+	}
 
 	if *listJobs {
 		fmt.Printf("\n")
