@@ -14,6 +14,7 @@ import (
 type Config struct {
 	Job         core.Job
 	Input       string
+	Shuffle     *string
 	Output      string
 	NumMappers  int
 	NumReducers int
@@ -27,11 +28,16 @@ func NewEngine(config Config) *Engine {
 	return &Engine{config: config}
 }
 
-func (e *Engine) Run() error {
+func (e *Engine) Run() (err error) {
 	// Create temporary directory for intermediate shuffle files.
-	shuffleDir, err := os.MkdirTemp("", "gomr-job-*")
-	if err != nil {
-		return err
+	var shuffleDir string
+	if e.config.Shuffle == nil {
+		shuffleDir, err = os.MkdirTemp("", "gomr-job-*")
+		if err != nil {
+			return err
+		}
+	} else {
+		shuffleDir = *e.config.Shuffle
 	}
 	defer os.RemoveAll(shuffleDir)
 

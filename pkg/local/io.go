@@ -104,6 +104,22 @@ func ReadRecords(filePath string, bufferSize ...int) ([]core.KeyValue, error) {
 	return records, nil
 }
 
+func WriteRecords(filePath string, records iter.Seq[core.KeyValue]) error {
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	for record := range records {
+		if _, err := fmt.Fprintf(file, "%s %s\n", record.Key, record.Value); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func WritePartitions(outputDir string, partitions map[int][]core.KeyValue) error {
 	// Ensure output directory exists
 	dir := filepath.Dir(filepath.Join(outputDir, "dummy"))
@@ -117,22 +133,6 @@ func WritePartitions(outputDir string, partitions map[int][]core.KeyValue) error
 		outputPath := filepath.Join(outputDir, partFilename)
 
 		if err := WriteRecords(outputPath, slices.Values(records)); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func WriteRecords(filePath string, records iter.Seq[core.KeyValue]) error {
-	file, err := os.Create(filePath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	for record := range records {
-		if _, err := fmt.Fprintf(file, "%s %s\n", record.Key, record.Value); err != nil {
 			return err
 		}
 	}

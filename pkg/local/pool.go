@@ -7,24 +7,32 @@ type Task func()
 type Pool struct {
 	numWorkers int
 	tasks      chan Task
+	once       sync.Once
 	wg         sync.WaitGroup
 }
 
 func NewPool(numWorkers int) *Pool {
+	if numWorkers <= 0 {
+		numWorkers = 1
+	}
 	return &Pool{
 		numWorkers: numWorkers,
-		tasks:      make(chan Task),
+		tasks:      make(chan Task, numWorkers),
 	}
 }
 
 func (p *Pool) Start() {
-	for range p.numWorkers {
-		p.wg.Go(func() {
-			for task := range p.tasks {
-				task()
-			}
-		})
-	}
+	p.once.Do(func() {
+		for i := 0; i < p.numWorkers; i++ {
+			p.wg.Go(func() {
+				for task := range p.tasks {
+					if task != nil {
+						task()
+					}
+				}
+			})
+		}
+	})
 }
 
 func (p *Pool) Submit(task Task) {
