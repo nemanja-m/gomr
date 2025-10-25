@@ -1,9 +1,10 @@
 package rest
 
 import (
-	"log"
 	"net/http"
 	"time"
+
+	"github.com/nemanja-m/gomr/internal/shared/logging"
 )
 
 // responseWriter wraps http.ResponseWriter to capture the status code
@@ -28,44 +29,52 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 }
 
 // LoggingMiddleware logs HTTP requests with method, path, status, duration, and size
-func LoggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+func LoggingMiddleware(logger logging.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			start := time.Now()
 
-		wrapped := &responseWriter{
-			ResponseWriter: w,
-			statusCode:     0,
-			written:        0,
-		}
+			wrapped := &responseWriter{
+				ResponseWriter: w,
+				statusCode:     0,
+				written:        0,
+			}
 
-		next.ServeHTTP(wrapped, r)
+			next.ServeHTTP(wrapped, r)
 
-		duration := time.Since(start)
-		log.Printf("[%s] %s %s - %d (%d bytes) in %v",
-			r.Method,
-			r.URL.Path,
-			r.RemoteAddr,
-			wrapped.statusCode,
-			wrapped.written,
-			duration,
-		)
-	})
+			duration := time.Since(start)
+			logger.Info("HTTP request",
+				"method", r.Method,
+				"path", r.URL.Path,
+				"remote_addr", r.RemoteAddr,
+				"status", wrapped.statusCode,
+				"bytes", wrapped.written,
+				"duration_ms", duration.Milliseconds(),
+			)
+		})
+	}
 }
 
 // RecoveryMiddleware recovers from panics and logs them
-func RecoveryMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				log.Printf("[PANIC] %s %s - %v", r.Method, r.URL.Path, err)
-				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-				w.Header().Set("X-Content-Type-Options", "nosniff")
-				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("Internal Server Error\n"))
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
+func RecoveryMiddleware(logger logging.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			defer func() {
+				if err := recover(); err != nil {
+					logger.Error("Panic recovered",
+						"method", r.Method,
+						"path", r.URL.Path,
+						"error", err,
+					)
+					w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+					w.Header().Set("X-Content-Type-Options", "nosniff")
+					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte("Internal Server Error\n"))
+				}
+			}()
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // ChainMiddleware chains multiple middleware functions together

@@ -10,7 +10,7 @@ import (
 )
 
 func TestCreateJob(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -70,7 +70,7 @@ func TestCreateJob(t *testing.T) {
 }
 
 func TestCreateJobValidation(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -170,7 +170,7 @@ func TestCreateJobValidation(t *testing.T) {
 }
 
 func TestGetJob(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -230,7 +230,7 @@ func TestGetJob(t *testing.T) {
 }
 
 func TestGetJobNotFound(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -244,7 +244,7 @@ func TestGetJobNotFound(t *testing.T) {
 }
 
 func TestListJobs(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -303,7 +303,7 @@ func TestListJobs(t *testing.T) {
 }
 
 func TestListJobsPagination(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -376,7 +376,7 @@ func TestListJobsPagination(t *testing.T) {
 }
 
 func TestGetJobTasks(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -433,7 +433,7 @@ func TestGetJobTasks(t *testing.T) {
 }
 
 func TestMethodNotAllowed(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -448,7 +448,7 @@ func TestMethodNotAllowed(t *testing.T) {
 }
 
 func TestListJobsReturnsEmptyArray(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -485,7 +485,7 @@ func TestListJobsReturnsEmptyArray(t *testing.T) {
 }
 
 func TestGetJobTasksReturnsEmptyArray(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -554,7 +554,7 @@ func TestGetJobTasksReturnsEmptyArray(t *testing.T) {
 }
 
 func TestGetJobErrorsReturnsEmptyArray(t *testing.T) {
-	api := NewAPI()
+	api := NewAPI(newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 

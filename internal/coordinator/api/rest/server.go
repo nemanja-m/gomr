@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nemanja-m/gomr/internal/shared/logging"
 )
 
 type JobInfo struct {
@@ -19,15 +20,17 @@ type JobInfo struct {
 }
 
 type API struct {
-	mu    sync.RWMutex
-	jobs  map[string]*JobInfo
-	tasks map[string][]TaskInfo // jobID -> tasks
+	mu     sync.RWMutex
+	jobs   map[string]*JobInfo
+	tasks  map[string][]TaskInfo // jobID -> tasks
+	logger logging.Logger
 }
 
-func NewAPI() *API {
+func NewAPI(logger logging.Logger) *API {
 	return &API{
-		jobs:  make(map[string]*JobInfo),
-		tasks: make(map[string][]TaskInfo),
+		jobs:   make(map[string]*JobInfo),
+		tasks:  make(map[string][]TaskInfo),
+		logger: logger,
 	}
 }
 
@@ -276,15 +279,15 @@ const (
 	idleTimeout  = 60 * time.Second
 )
 
-func NewServer(addr string) *http.Server {
-	api := NewAPI()
+func NewServer(addr string, logger logging.Logger) *http.Server {
+	api := NewAPI(logger)
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
 	handler := ChainMiddleware(
 		mux,
-		RecoveryMiddleware,
-		LoggingMiddleware,
+		RecoveryMiddleware(logger),
+		LoggingMiddleware(logger),
 	)
 
 	return &http.Server{

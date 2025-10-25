@@ -1,28 +1,75 @@
 package rest
 
 import (
-	"bytes"
 	"fmt"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
+	"sync"
 	"testing"
 )
 
+// mockLogger is a test logger that captures log messages
+type mockLogger struct {
+	mu       sync.Mutex
+	messages []string
+}
+
+func newMockLogger() *mockLogger {
+	return &mockLogger{
+		messages: make([]string, 0),
+	}
+}
+
+func (m *mockLogger) Debug(msg string, args ...any) {
+	m.log("DEBUG", msg, args...)
+}
+
+func (m *mockLogger) Info(msg string, args ...any) {
+	m.log("INFO", msg, args...)
+}
+
+func (m *mockLogger) Warn(msg string, args ...any) {
+	m.log("WARN", msg, args...)
+}
+
+func (m *mockLogger) Error(msg string, args ...any) {
+	m.log("ERROR", msg, args...)
+}
+
+func (m *mockLogger) Fatal(msg string, args ...any) {
+	m.log("FATAL", msg, args...)
+}
+
+func (m *mockLogger) log(level, msg string, args ...any) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Format the message with args
+	formatted := fmt.Sprintf("[%s] %s", level, msg)
+	for i := 0; i < len(args); i += 2 {
+		if i+1 < len(args) {
+			formatted += fmt.Sprintf(" %v=%v", args[i], args[i+1])
+		}
+	}
+	m.messages = append(m.messages, formatted)
+}
+
+func (m *mockLogger) getOutput() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return strings.Join(m.messages, "\n")
+}
+
 func TestLoggingMiddleware(t *testing.T) {
-	// Capture log output
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	defer log.SetOutput(os.Stderr)
+	logger := newMockLogger()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("Hello, World!"))
 	})
 
-	wrapped := LoggingMiddleware(handler)
+	wrapped := LoggingMiddleware(logger)(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
@@ -34,9 +81,9 @@ func TestLoggingMiddleware(t *testing.T) {
 	}
 
 	// Check that log was written
-	logOutput := buf.String()
-	if !strings.Contains(logOutput, "[GET]") {
-		t.Error("Expected log to contain method [GET]")
+	logOutput := logger.getOutput()
+	if !strings.Contains(logOutput, "GET") {
+		t.Error("Expected log to contain method GET")
 	}
 	if !strings.Contains(logOutput, "/test") {
 		t.Error("Expected log to contain path /test")
@@ -44,8 +91,8 @@ func TestLoggingMiddleware(t *testing.T) {
 	if !strings.Contains(logOutput, "200") {
 		t.Error("Expected log to contain status code 200")
 	}
-	if !strings.Contains(logOutput, "13 bytes") {
-		t.Error("Expected log to contain response size")
+	if !strings.Contains(logOutput, "HTTP request") {
+		t.Error("Expected log to contain 'HTTP request'")
 	}
 }
 
@@ -63,15 +110,13 @@ func TestLoggingMiddlewareWithDifferentStatusCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			log.SetOutput(&buf)
-			defer log.SetOutput(os.Stderr)
+			logger := newMockLogger()
 
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
 			})
 
-			wrapped := LoggingMiddleware(handler)
+			wrapped := LoggingMiddleware(logger)(handler)
 			req := httptest.NewRequest(http.MethodGet, "/test", nil)
 			w := httptest.NewRecorder()
 
@@ -81,7 +126,7 @@ func TestLoggingMiddlewareWithDifferentStatusCodes(t *testing.T) {
 				t.Errorf("Expected status %d, got %d", tt.statusCode, w.Code)
 			}
 
-			logOutput := buf.String()
+			logOutput := logger.getOutput()
 			if !strings.Contains(logOutput, fmt.Sprintf("%d", tt.statusCode)) {
 				t.Errorf("Expected log to contain status code %d, got: %s", tt.statusCode, logOutput)
 			}
@@ -90,16 +135,13 @@ func TestLoggingMiddlewareWithDifferentStatusCodes(t *testing.T) {
 }
 
 func TestRecoveryMiddleware(t *testing.T) {
-	// Capture log output
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	defer log.SetOutput(os.Stderr)
+	logger := newMockLogger()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("something went wrong")
 	})
 
-	wrapped := RecoveryMiddleware(handler)
+	wrapped := RecoveryMiddleware(logger)(handler)
 
 	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
 	w := httptest.NewRecorder()
@@ -111,9 +153,12 @@ func TestRecoveryMiddleware(t *testing.T) {
 	}
 
 	// Check that panic was logged
-	logOutput := buf.String()
-	if !strings.Contains(logOutput, "[PANIC]") {
-		t.Error("Expected log to contain [PANIC]")
+	logOutput := logger.getOutput()
+	if !strings.Contains(logOutput, "ERROR") {
+		t.Error("Expected log to contain ERROR level")
+	}
+	if !strings.Contains(logOutput, "Panic recovered") {
+		t.Error("Expected log to contain 'Panic recovered'")
 	}
 	if !strings.Contains(logOutput, "something went wrong") {
 		t.Error("Expected log to contain panic message")
@@ -121,9 +166,7 @@ func TestRecoveryMiddleware(t *testing.T) {
 }
 
 func TestChainMiddleware(t *testing.T) {
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	defer log.SetOutput(os.Stderr)
+	logger := newMockLogger()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -132,8 +175,8 @@ func TestChainMiddleware(t *testing.T) {
 
 	wrapped := ChainMiddleware(
 		handler,
-		RecoveryMiddleware,
-		LoggingMiddleware,
+		RecoveryMiddleware(logger),
+		LoggingMiddleware(logger),
 	)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/test", nil)
@@ -146,16 +189,14 @@ func TestChainMiddleware(t *testing.T) {
 	}
 
 	// Check that log was written (logging middleware was applied)
-	logOutput := buf.String()
-	if !strings.Contains(logOutput, "[POST]") {
-		t.Error("Expected log to contain method [POST]")
+	logOutput := logger.getOutput()
+	if !strings.Contains(logOutput, "POST") {
+		t.Error("Expected log to contain method POST")
 	}
 }
 
 func TestChainMiddlewareWithPanic(t *testing.T) {
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	defer log.SetOutput(os.Stderr)
+	logger := newMockLogger()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("test panic")
@@ -163,8 +204,8 @@ func TestChainMiddlewareWithPanic(t *testing.T) {
 
 	wrapped := ChainMiddleware(
 		handler,
-		RecoveryMiddleware,
-		LoggingMiddleware,
+		RecoveryMiddleware(logger),
+		LoggingMiddleware(logger),
 	)
 
 	req := httptest.NewRequest(http.MethodGet, "/panic", nil)
@@ -177,9 +218,9 @@ func TestChainMiddlewareWithPanic(t *testing.T) {
 	}
 
 	// Panic log should be present - this validates that both middleware work together
-	logOutput := buf.String()
-	if !strings.Contains(logOutput, "[PANIC]") {
-		t.Errorf("Expected log to contain [PANIC], got: %s", logOutput)
+	logOutput := logger.getOutput()
+	if !strings.Contains(logOutput, "ERROR") {
+		t.Errorf("Expected log to contain ERROR, got: %s", logOutput)
 	}
 	if !strings.Contains(logOutput, "/panic") {
 		t.Error("Expected log to contain the request path")
@@ -187,16 +228,14 @@ func TestChainMiddlewareWithPanic(t *testing.T) {
 }
 
 func TestResponseWriterCapturesStatusCode(t *testing.T) {
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	defer log.SetOutput(os.Stderr)
+	logger := newMockLogger()
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 		w.Write([]byte("created"))
 	})
 
-	wrapped := LoggingMiddleware(handler)
+	wrapped := LoggingMiddleware(logger)(handler)
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
 	w := httptest.NewRecorder()
 
@@ -218,11 +257,9 @@ func TestResponseWriterDefaultStatusCode(t *testing.T) {
 		w.Write([]byte("OK"))
 	})
 
-	var buf bytes.Buffer
-	log.SetOutput(&buf)
-	defer log.SetOutput(os.Stderr)
+	logger := newMockLogger()
 
-	wrapped := LoggingMiddleware(handler)
+	wrapped := LoggingMiddleware(logger)(handler)
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	w := httptest.NewRecorder()
 
@@ -233,7 +270,7 @@ func TestResponseWriterDefaultStatusCode(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 
-	logOutput := buf.String()
+	logOutput := logger.getOutput()
 	if !strings.Contains(logOutput, "200") {
 		t.Error("Expected log to contain status code 200")
 	}

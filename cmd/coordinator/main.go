@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/nemanja-m/gomr/internal/coordinator/api/rest"
+	"github.com/nemanja-m/gomr/internal/shared/logging"
 )
 
 func main() {
@@ -17,12 +18,13 @@ func main() {
 		addr = envAddr
 	}
 
-	server := rest.NewServer(addr)
+	logger := logging.NewSlogLogger(slog.LevelInfo)
+	server := rest.NewServer(addr, logger)
 
 	go func() {
-		log.Printf("Starting coordinator API server on %s", addr)
+		logger.Info("Starting coordinator API server", "address", addr)
 		if err := server.ListenAndServe(); err != nil && err.Error() != "http: Server closed" {
-			log.Fatalf("Server error: %v", err)
+			logger.Fatal("Server error", "error", err)
 		}
 	}()
 
@@ -30,15 +32,15 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	logger.Info("Shutting down server")
 
 	// Give server 30 seconds to finish serving ongoing requests
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		logger.Fatal("Server forced to shutdown", "error", err)
 	}
 
-	log.Println("Server stopped")
+	logger.Info("Server stopped")
 }
