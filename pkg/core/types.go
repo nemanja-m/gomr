@@ -15,3 +15,23 @@ type Job interface {
 	Name() string
 	Describe() string
 }
+
+type JobState int
+
+const (
+	JobStateSubmitted JobState = iota
+	JobStatePlanning
+	JobStateRunning
+	JobStateSucceeded
+	JobStateFailed
+)
+
+type TaskState int
+
+const (
+	TaskStatePending TaskState = iota
+	TaskStateRunning
+	TaskStateSucceeded
+	TaskStateFailed
+	TaskStateKilled
+)
