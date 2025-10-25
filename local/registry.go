@@ -1,13 +1,11 @@
-package jobs
+package local
 
 import (
 	"fmt"
 	"sync"
-
-	"github.com/nemanja-m/gomr/pkg/core"
 )
 
-type JobBuilder func() core.Job
+type JobBuilder func() Job
 
 type Registry struct {
 	mu   sync.RWMutex
@@ -28,11 +26,11 @@ func (r *Registry) Register(name string, jobBuilder JobBuilder) {
 	r.jobs[name] = jobBuilder
 }
 
-func Build(name string, config map[string]string) (core.Job, error) {
+func Build(name string, config map[string]string) (Job, error) {
 	return registry.Build(name, config)
 }
 
-func (r *Registry) Build(name string, config map[string]string) (core.Job, error) {
+func (r *Registry) Build(name string, config map[string]string) (Job, error) {
 	builder, exists := r.jobs[name]
 	if !exists {
 		return nil, fmt.Errorf("job '%s' is not registered", name)

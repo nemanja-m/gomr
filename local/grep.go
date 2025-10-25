@@ -1,18 +1,13 @@
-package grep
+package local
 
 import (
 	"fmt"
 	"regexp"
 	"strings"
-
-	"github.com/nemanja-m/gomr/pkg/core"
-	"github.com/nemanja-m/gomr/pkg/jobs"
 )
 
-const name = "grep"
-
 func init() {
-	jobs.Register(name, func() core.Job {
+	Register("grep", func() Job {
 		return &GrepJob{}
 	})
 }
@@ -22,7 +17,7 @@ type GrepJob struct {
 }
 
 func (g *GrepJob) Name() string {
-	return name
+	return "grep"
 }
 
 func (g *GrepJob) Describe() string {
@@ -56,14 +51,14 @@ func (g *GrepJob) Validate() error {
 	return nil
 }
 
-func (g *GrepJob) Map(key, line string) []core.KeyValue {
+func (g *GrepJob) Map(key, line string) []KeyValue {
 	match := g.pattern.MatchString(line)
 	if match {
-		return []core.KeyValue{{Key: key, Value: line}}
+		return []KeyValue{{Key: key, Value: line}}
 	}
 	return nil
 }
 
-func (g *GrepJob) Reduce(key string, values []string) core.KeyValue {
-	return core.KeyValue{Key: key, Value: strings.TrimSpace(values[0])}
+func (g *GrepJob) Reduce(key string, values []string) KeyValue {
+	return KeyValue{Key: key, Value: strings.TrimSpace(values[0])}
 }

@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nemanja-m/gomr/pkg/distributed/coordinator"
+	"github.com/nemanja-m/gomr/internal/coordinator/api/rest"
 )
 
 func main() {
@@ -17,7 +17,7 @@ func main() {
 		addr = envAddr
 	}
 
-	server := coordinator.NewServer(addr)
+	server := rest.NewServer(addr)
 
 	go func() {
 		log.Printf("Starting coordinator API server on %s", addr)

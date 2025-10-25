@@ -8,23 +8,24 @@ A MapReduce implementation in Go for parallel data processing.
 # Build
 make build
 
-# Run a job
-make run ARGS="-job wordcount -input 'data/**/*.txt' -output output/"
-
 # Run tests
 make test
 ```
 
-## Usage
+## Local Mode
+
+This version implements local map-reduce with multiprocessing.
+
+### Usage
 
 ```bash
-./bin/gomr -job <name> -input <pattern> -output <dir> [options]
+./bin/local -job <name> -input <pattern> -output <dir> [options]
 ```
 
 List available jobs
 
 ```
-./bin/gomr -list
+./bin/local -list
 ```
 
 ### Options
@@ -40,44 +41,39 @@ List available jobs
 
 ```bash
 # Word count
-./bin/gomr -job wordcount -input "data/*.txt" -output output/
+./bin/local -job wordcount -input "data/*.txt" -output output/
 
 # Case-sensitive word count
-./bin/gomr -job wordcount -input "data/*.txt" -output output/ -args case-sensitive=true
+./bin/local -job wordcount -input "data/*.txt" -output output/ -args case-sensitive=true
 
 # Grep for pattern
-./bin/gomr -job grep -input "logs/**/*.log" -output matches/ -args pattern=ERROR
+./bin/local -job grep -input "logs/**/*.log" -output matches/ -args pattern=ERROR
 ```
 
 ## Creating Custom Jobs
 
-Implement the `core.Job` interface and register in `init()`:
+Implement the `Job` interface and register in `init()`:
 
 ```go
 package myjob
 
-import (
-    "github.com/nemanja-m/gomr/pkg/core"
-    "github.com/nemanja-m/gomr/pkg/jobs"
-)
-
 func init() {
-    jobs.Register("myjob", func() core.Job {
+    jobs.Register("myjob", func() Job {
         return &MyJob{}
     })
 }
 
 type MyJob struct{}
 
-func (j *MyJob) Map(key, value string) []core.KeyValue {
+func (j *MyJob) Map(key, value string) []KeyValue {
     // Map logic
 }
 
-func (j *MyJob) Reduce(key string, values []string) core.KeyValue {
+func (j *MyJob) Reduce(key string, values []string) KeyValue {
     // Reduce logic
 }
 
 // Implement Configure(), Validate(), Name(), Describe()
 ```
 
-See `examples/wordcount` and `examples/grep` for reference implementations.
+See [wordcount](./local/wordcount.go) and [grep](./local/grep.go) examples for reference implementations.

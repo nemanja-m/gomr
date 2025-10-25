@@ -7,16 +7,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/nemanja-m/gomr/pkg/jobs"
-	"github.com/nemanja-m/gomr/pkg/local"
-
-	_ "github.com/nemanja-m/gomr/examples/grep"
-	_ "github.com/nemanja-m/gomr/examples/wordcount"
+	"github.com/nemanja-m/gomr/local"
 )
 
 func main() {
 	var (
-		jobName     = flag.String("job", "", "Job to run: "+strings.Join(jobs.List(), ", "))
+		jobName     = flag.String("job", "", "Job to run: "+strings.Join(local.List(), ", "))
 		input       = flag.String("input", "", "Input files glob pattern")
 		output      = flag.String("output", "", "Output directory")
 		mappers     = flag.Int("mappers", runtime.NumCPU(), "Number of mappers (overrides default)")
@@ -35,15 +31,15 @@ func main() {
 
 	if *listJobs {
 		fmt.Printf("\n")
-		for _, name := range jobs.List() {
-			desc, _ := jobs.Describe(name)
+		for _, name := range local.List() {
+			desc, _ := local.Describe(name)
 			fmt.Printf("%s: %s\n", name, desc)
 		}
 		return
 	}
 
 	if *describeJob != "" {
-		desc, err := jobs.Describe(*describeJob)
+		desc, err := local.Describe(*describeJob)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -67,7 +63,7 @@ func main() {
 		log.Fatal("Number of reducers must be >= 0")
 	}
 
-	job, err := jobs.Build(*jobName, parseJobArgs(*jobArgs))
+	job, err := local.Build(*jobName, parseJobArgs(*jobArgs))
 	if err != nil {
 		log.Fatal(err)
 	}

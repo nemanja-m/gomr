@@ -8,8 +8,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/nemanja-m/gomr/pkg/core"
 )
 
 func TestFindFiles_BasicAndIgnoreDirs(t *testing.T) {
@@ -127,7 +125,7 @@ func TestWriteRecords_Basic(t *testing.T) {
 	tmpDir := t.TempDir()
 	outFile := filepath.Join(tmpDir, "out.txt")
 
-	vals := []core.KeyValue{{Key: "x", Value: "1"}, {Key: "y", Value: "2"}}
+	vals := []KeyValue{{Key: "x", Value: "1"}, {Key: "y", Value: "2"}}
 	require.NoError(t, WriteRecords(outFile, slices.Values(vals)))
 
 	// Read back the file and verify contents
@@ -142,13 +140,13 @@ func TestWriteRecords_Basic(t *testing.T) {
 func TestWriteRecords_FileNotWritable(t *testing.T) {
 	// Attempt to write to a directory path, which should fail
 	tmpDir := t.TempDir()
-	err := WriteRecords(tmpDir, slices.Values([]core.KeyValue{{Key: "a", Value: "b"}}))
+	err := WriteRecords(tmpDir, slices.Values([]KeyValue{{Key: "a", Value: "b"}}))
 	require.Error(t, err)
 }
 
 func TestWritePartitions_WritesFiles(t *testing.T) {
 	tmpDir := t.TempDir()
-	parts := map[int][]core.KeyValue{
+	parts := map[int][]KeyValue{
 		0: {{Key: "p0k", Value: "v0"}},
 		1: {{Key: "p1k", Value: "v1"}},
 	}
@@ -178,7 +176,7 @@ func TestWritePartitions_MkdirAllFails(t *testing.T) {
 
 	// Now attempt to create outputDir under the blocker path
 	outDir := filepath.Join(blocker, "parts")
-	parts := map[int][]core.KeyValue{0: {{Key: "k", Value: "v"}}}
+	parts := map[int][]KeyValue{0: {{Key: "k", Value: "v"}}}
 
 	err := WritePartitions(outDir, parts)
 	require.Error(t, err)
@@ -191,7 +189,7 @@ func TestWritePartitions_UnwritableDir(t *testing.T) {
 	// Ensure cleanup permissions so temp dir can be removed
 	defer os.Chmod(outDir, 0o700)
 
-	parts := map[int][]core.KeyValue{0: {{Key: "k", Value: "v"}}}
+	parts := map[int][]KeyValue{0: {{Key: "k", Value: "v"}}}
 	err := WritePartitions(outDir, parts)
 	require.Error(t, err)
 
@@ -203,7 +201,7 @@ func TestWritePartitions_EmptyPartitionsCreatesDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	outDir := filepath.Join(tmpDir, "parts")
 
-	parts := map[int][]core.KeyValue{}
+	parts := map[int][]KeyValue{}
 	require.NoError(t, WritePartitions(outDir, parts))
 
 	info, err := os.Stat(outDir)

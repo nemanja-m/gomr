@@ -7,14 +7,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nemanja-m/gomr/pkg/core"
 	"github.com/stretchr/testify/require"
 )
 
 // simpleJob counts total words per file (keyed by filename:linenumber but we'll reduce by file)
 type simpleJob struct{}
 
-func (j *simpleJob) Map(key, value string) []core.KeyValue {
+func (j *simpleJob) Map(key, value string) []KeyValue {
 	// Count words in the value
 	n := 0
 	for f := range strings.FieldsSeq(value) {
@@ -23,17 +22,17 @@ func (j *simpleJob) Map(key, value string) []core.KeyValue {
 		}
 	}
 	fileName, _, _ := strings.Cut(key, ":")
-	return []core.KeyValue{{Key: fileName, Value: strconv.Itoa(n)}}
+	return []KeyValue{{Key: fileName, Value: strconv.Itoa(n)}}
 }
 
-func (j *simpleJob) Reduce(key string, values []string) core.KeyValue {
+func (j *simpleJob) Reduce(key string, values []string) KeyValue {
 	// sum values
 	sum := 0
 	for _, v := range values {
 		i, _ := strconv.Atoi(v)
 		sum += i
 	}
-	return core.KeyValue{Key: key, Value: strconv.Itoa(sum)}
+	return KeyValue{Key: key, Value: strconv.Itoa(sum)}
 }
 
 func (j *simpleJob) Configure(map[string]string) error { return nil }

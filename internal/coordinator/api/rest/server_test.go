@@ -1,4 +1,4 @@
-package coordinator
+package rest
 
 import (
 	"bytes"
@@ -8,10 +8,6 @@ import (
 	"strings"
 	"testing"
 )
-
-// func TestFail(t *testing.T) {
-// 	t.Fail()
-// }
 
 func TestCreateJob(t *testing.T) {
 	api := NewAPI()

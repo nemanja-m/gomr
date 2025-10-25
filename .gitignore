@@ -28,4 +28,4 @@ go.work.sum
 bin/
 
 # Output data
-examples/data/output/
+data/output/

@@ -1,4 +1,4 @@
-package coordinator
+package rest
 
 import (
 	"encoding/json"
@@ -11,17 +11,17 @@ import (
 	"github.com/google/uuid"
 )
 
-type API struct {
-	mu    sync.RWMutex
-	jobs  map[string]*JobInfo
-	tasks map[string][]TaskInfo // jobID -> tasks
-}
-
 type JobInfo struct {
 	Request   CreateJobRequest
 	Response  GetJobResponse
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type API struct {
+	mu    sync.RWMutex
+	jobs  map[string]*JobInfo
+	tasks map[string][]TaskInfo // jobID -> tasks
 }
 
 func NewAPI() *API {

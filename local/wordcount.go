@@ -1,18 +1,13 @@
-package wordcount
+package local
 
 import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/nemanja-m/gomr/pkg/core"
-	"github.com/nemanja-m/gomr/pkg/jobs"
 )
 
-const name = "wordcount"
-
 func init() {
-	jobs.Register(name, func() core.Job {
+	Register("wordcount", func() Job {
 		return &WordCountJob{}
 	})
 }
@@ -23,7 +18,7 @@ type WordCountJob struct {
 }
 
 func (wc *WordCountJob) Name() string {
-	return name
+	return "wordcount"
 }
 
 func (wc *WordCountJob) Describe() string {
@@ -42,8 +37,8 @@ func (wc *WordCountJob) Validate() error {
 	return nil
 }
 
-func (wc *WordCountJob) Map(_, line string) []core.KeyValue {
-	var kvs []core.KeyValue
+func (wc *WordCountJob) Map(_, line string) []KeyValue {
+	var kvs []KeyValue
 	for word := range strings.FieldsSeq(line) {
 		// Keep alphanumeric UTF-8 characters
 		word = wc.pattern.ReplaceAllString(word, "")
@@ -57,16 +52,16 @@ func (wc *WordCountJob) Map(_, line string) []core.KeyValue {
 			word = strings.ToLower(word)
 		}
 
-		kvs = append(kvs, core.KeyValue{Key: word, Value: "1"})
+		kvs = append(kvs, KeyValue{Key: word, Value: "1"})
 	}
 	return kvs
 }
 
-func (wc *WordCountJob) Reduce(word string, counts []string) core.KeyValue {
+func (wc *WordCountJob) Reduce(word string, counts []string) KeyValue {
 	total := 0
 	for _, count := range counts {
 		val, _ := strconv.Atoi(count)
 		total += val
 	}
-	return core.KeyValue{Key: word, Value: strconv.Itoa(total)}
+	return KeyValue{Key: word, Value: strconv.Itoa(total)}
 }

@@ -10,8 +10,6 @@ import (
 	"strings"
 
 	"github.com/bmatcuk/doublestar/v4"
-
-	"github.com/nemanja-m/gomr/pkg/core"
 )
 
 const (
@@ -72,7 +70,7 @@ func ReadLines(filePath string, bufferSize ...int) ([]Line, error) {
 	return lines, nil
 }
 
-func ReadRecords(filePath string, bufferSize ...int) ([]core.KeyValue, error) {
+func ReadRecords(filePath string, bufferSize ...int) ([]KeyValue, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -87,7 +85,7 @@ func ReadRecords(filePath string, bufferSize ...int) ([]core.KeyValue, error) {
 	scanner := bufio.NewScanner(file)
 	scanner.Buffer(buffer, bufferSize[0])
 
-	var records []core.KeyValue
+	var records []KeyValue
 
 	for scanner.Scan() {
 		key, value, ok := strings.Cut(scanner.Text(), " ")
@@ -95,7 +93,7 @@ func ReadRecords(filePath string, bufferSize ...int) ([]core.KeyValue, error) {
 			return nil, fmt.Errorf("invalid record format in line: %q", scanner.Text())
 		}
 		value = strings.TrimLeft(value, " \t")
-		records = append(records, core.KeyValue{Key: key, Value: value})
+		records = append(records, KeyValue{Key: key, Value: value})
 	}
 	if err := scanner.Err(); err != nil {
 		return nil, err
@@ -104,7 +102,7 @@ func ReadRecords(filePath string, bufferSize ...int) ([]core.KeyValue, error) {
 	return records, nil
 }
 
-func WriteRecords(filePath string, records iter.Seq[core.KeyValue]) error {
+func WriteRecords(filePath string, records iter.Seq[KeyValue]) error {
 	file, err := os.Create(filePath)
 	if err != nil {
 		return err
@@ -120,7 +118,7 @@ func WriteRecords(filePath string, records iter.Seq[core.KeyValue]) error {
 	return nil
 }
 
-func WritePartitions(outputDir string, partitions map[int][]core.KeyValue) error {
+func WritePartitions(outputDir string, partitions map[int][]KeyValue) error {
 	// Ensure output directory exists
 	dir := filepath.Dir(filepath.Join(outputDir, "dummy"))
 	if err := os.MkdirAll(dir, 0755); err != nil {

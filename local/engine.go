@@ -7,12 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-
-	"github.com/nemanja-m/gomr/pkg/core"
 )
 
 type Config struct {
-	Job         core.Job
+	Job         Job
 	Input       string
 	Shuffle     *string
 	Output      string
@@ -101,16 +99,16 @@ func (e *Engine) runMapTask(mapperId int, shuffleDir string, filePaths []string)
 	}
 
 	// Map input lines to key-value pairs
-	var mapped []core.KeyValue
+	var mapped []KeyValue
 	for _, line := range lines {
 		kvs := e.config.Job.Map(fmt.Sprintf("%s:%d", line.Filename, line.Number), line.Text)
 		mapped = append(mapped, kvs...)
 	}
 
 	// Partition the mapped data.
-	var partitioned = make(map[int][]core.KeyValue)
+	var partitioned = make(map[int][]KeyValue)
 	for _, kv := range mapped {
-		partition := core.Partition(kv.Key, e.config.NumReducers)
+		partition := Partition(kv.Key, e.config.NumReducers)
 		partitioned[partition] = append(partitioned[partition], kv)
 	}
 
@@ -136,7 +134,7 @@ func (e *Engine) runReduceTask(reducerId int, shuffleDir string) error {
 	}
 
 	// Read and merge all input files for this reducer
-	var allRecords []core.KeyValue
+	var allRecords []KeyValue
 	for _, file := range matches {
 		records, err := ReadRecords(file)
 		if err != nil {
@@ -144,12 +142,12 @@ func (e *Engine) runReduceTask(reducerId int, shuffleDir string) error {
 		}
 		allRecords = append(allRecords, records...)
 	}
-	slices.SortFunc(allRecords, func(left, right core.KeyValue) int {
+	slices.SortFunc(allRecords, func(left, right KeyValue) int {
 		return cmp.Compare(left.Key, right.Key)
 	})
 
 	// Reduce the merged input
-	var results []core.KeyValue
+	var results []KeyValue
 	for i := 0; i < len(allRecords); {
 		key := allRecords[i].Key
 		values := []string{}
@@ -163,5 +161,5 @@ func (e *Engine) runReduceTask(reducerId int, shuffleDir string) error {
 		results = append(results, e.config.Job.Reduce(key, values))
 	}
 
-	return WritePartitions(e.config.Output, map[int][]core.KeyValue{reducerId: results})
+	return WritePartitions(e.config.Output, map[int][]KeyValue{reducerId: results})
 }
