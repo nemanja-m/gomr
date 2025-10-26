@@ -21,7 +21,7 @@ func main() {
 	}
 
 	logger := logging.NewSlogLogger(slog.LevelInfo)
-	orchestrator := core.NewJobOrchestrator(storage.NewInMemoryJobStore())
+	orchestrator := core.NewJobController(storage.NewInMemoryJobStore(), logger)
 	server := rest.NewServer(addr, orchestrator, logger)
 
 	go func() {

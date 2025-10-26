@@ -21,17 +21,25 @@ func NewInMemoryJobStore() *InMemoryJobStore {
 	}
 }
 
-func (s *InMemoryJobStore) SaveJob(job *core.Job) error {
+func (s *InMemoryJobStore) SaveJob(job *core.Job, tasks ...*core.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.jobs[job.ID.String()] = job
+	jobID := job.ID.String()
+	s.jobs[jobID] = job
+	if len(tasks) > 0 {
+		s.tasks[jobID] = append(s.tasks[jobID], tasks...)
+	}
 	return nil
 }
 
-func (s *InMemoryJobStore) UpdateJob(job *core.Job) error {
+func (s *InMemoryJobStore) UpdateJob(job *core.Job, tasks ...*core.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.jobs[job.ID.String()] = job
+	jobID := job.ID.String()
+	s.jobs[jobID] = job
+	if len(tasks) > 0 {
+		s.tasks[jobID] = append(s.tasks[jobID], tasks...)
+	}
 	return nil
 }
 
@@ -45,7 +53,7 @@ func (s *InMemoryJobStore) GetJobByID(id uuid.UUID) (*core.Job, error) {
 	return job, nil
 }
 
-func (s *InMemoryJobStore) ListJobs() ([]*core.Job, error) {
+func (s *InMemoryJobStore) GetJobs() ([]*core.Job, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	jobs := make([]*core.Job, 0, len(s.jobs))
@@ -53,24 +61,6 @@ func (s *InMemoryJobStore) ListJobs() ([]*core.Job, error) {
 		jobs = append(jobs, job)
 	}
 	return jobs, nil
-}
-
-func (s *InMemoryJobStore) SaveTask(task *core.Task) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.tasks[task.JobID.String()] = append(s.tasks[task.JobID.String()], task)
-	return nil
-}
-
-func (s *InMemoryJobStore) SaveTasks(tasks []*core.Task) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if len(tasks) == 0 {
-		return nil
-	}
-	jobID := tasks[0].JobID.String()
-	s.tasks[jobID] = append(s.tasks[jobID], tasks...)
-	return nil
 }
 
 func (s *InMemoryJobStore) UpdateTask(task *core.Task) error {
@@ -100,7 +90,7 @@ func (s *InMemoryJobStore) GetTaskByID(id uuid.UUID) (*core.Task, error) {
 	return nil, nil
 }
 
-func (s *InMemoryJobStore) ListTasksByJobID(jobID uuid.UUID) ([]*core.Task, error) {
+func (s *InMemoryJobStore) GetTasksByJobID(jobID uuid.UUID) ([]*core.Task, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.tasks[jobID.String()], nil

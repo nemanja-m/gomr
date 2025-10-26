@@ -6,16 +6,70 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
-	"github.com/nemanja-m/gomr/internal/coordinator/storage"
 )
 
+// mockJobController is a simple mock that stores jobs in memory without side effects
+type mockJobController struct {
+	mu    sync.RWMutex
+	jobs  map[uuid.UUID]*core.Job
+	tasks map[uuid.UUID][]*core.Task
+}
+
+func newMockJobController() core.JobController {
+	return &mockJobController{
+		jobs:  make(map[uuid.UUID]*core.Job),
+		tasks: make(map[uuid.UUID][]*core.Task),
+	}
+}
+
+func (m *mockJobController) SubmitJob(job *core.Job) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	job.Status = core.JobStatusPending
+	m.jobs[job.ID] = job
+	m.tasks[job.ID] = []*core.Task{}
+	return nil
+}
+
+func (m *mockJobController) GetJob(id uuid.UUID) (*core.Job, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	job, exists := m.jobs[id]
+	if !exists {
+		return nil, nil
+	}
+	return job, nil
+}
+
+func (m *mockJobController) GetJobs() ([]*core.Job, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	jobs := make([]*core.Job, 0, len(m.jobs))
+	for _, job := range m.jobs {
+		jobs = append(jobs, job)
+	}
+	return jobs, nil
+}
+
+func (m *mockJobController) GetTasks(jobID uuid.UUID) ([]*core.Task, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	tasks, exists := m.tasks[jobID]
+	if !exists {
+		return []*core.Task{}, nil
+	}
+	return tasks, nil
+}
+
 func newTestAPI() *API {
-	jobStore := storage.NewInMemoryJobStore()
-	jobOrchestrator := core.NewJobOrchestrator(jobStore)
-	return NewAPI(jobOrchestrator, newMockLogger())
+	logger := newMockLogger()
+	jobOrchestrator := newMockJobController()
+	return NewAPI(jobOrchestrator, logger)
 }
 
 func TestSubmitJob(t *testing.T) {

@@ -3,14 +3,12 @@ package core
 import "github.com/google/uuid"
 
 type JobStore interface {
-	SaveJob(job *Job) error
-	UpdateJob(job *Job) error
+	SaveJob(job *Job, tasks ...*Task) error
+	UpdateJob(job *Job, tasks ...*Task) error
 	GetJobByID(id uuid.UUID) (*Job, error)
-	ListJobs() ([]*Job, error)
+	GetJobs() ([]*Job, error)
 
-	SaveTask(task *Task) error
-	SaveTasks(tasks []*Task) error
 	UpdateTask(task *Task) error
 	GetTaskByID(id uuid.UUID) (*Task, error)
-	ListTasksByJobID(jobID uuid.UUID) ([]*Task, error)
+	GetTasksByJobID(jobID uuid.UUID) ([]*Task, error)
 }

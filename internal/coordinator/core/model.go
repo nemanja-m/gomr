@@ -116,12 +116,16 @@ const (
 )
 
 type Task struct {
-	ID        uuid.UUID
-	JobID     uuid.UUID
-	Type      TaskType
-	Status    TaskStatus
-	Attempt   int
+	ID     uuid.UUID
+	JobID  uuid.UUID
+	Type   TaskType
+	Status TaskStatus
+	Input  InputConfig
+	Output OutputConfig
+
 	StartedAt *time.Time
 	EndedAt   *time.Time
-	Error     *string
+
+	Attempt int
+	Error   *string
 }
