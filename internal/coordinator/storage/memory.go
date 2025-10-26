@@ -53,14 +53,24 @@ func (s *InMemoryJobStore) GetJobByID(id uuid.UUID) (*core.Job, error) {
 	return job, nil
 }
 
-func (s *InMemoryJobStore) GetJobs() ([]*core.Job, error) {
+func (s *InMemoryJobStore) GetJobs(filter core.JobFilter) ([]*core.Job, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	jobs := make([]*core.Job, 0, len(s.jobs))
+
+	var filteredJobs []*core.Job
 	for _, job := range s.jobs {
-		jobs = append(jobs, job)
+		if filter.Status != nil && job.Status != *filter.Status {
+			continue
+		}
+		filteredJobs = append(filteredJobs, job)
 	}
-	return jobs, nil
+
+	total := len(filteredJobs)
+	start := min(filter.Offset, total)
+	end := min(start+filter.Limit, total)
+	pagedJobs := filteredJobs[start:end]
+
+	return pagedJobs, total, nil
 }
 
 func (s *InMemoryJobStore) UpdateTask(task *core.Task) error {

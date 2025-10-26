@@ -13,7 +13,7 @@ import (
 type JobController interface {
 	SubmitJob(job *Job) error
 	GetJob(id uuid.UUID) (*Job, error)
-	GetJobs() ([]*Job, error)
+	GetJobs(filter JobFilter) ([]*Job, int, error)
 	GetTasks(jobID uuid.UUID) ([]*Task, error)
 }
 
@@ -116,8 +116,8 @@ func (c *jobController) GetJob(id uuid.UUID) (*Job, error) {
 	return c.jobStore.GetJobByID(id)
 }
 
-func (c *jobController) GetJobs() ([]*Job, error) {
-	return c.jobStore.GetJobs()
+func (c *jobController) GetJobs(filter JobFilter) ([]*Job, int, error) {
+	return c.jobStore.GetJobs(filter)
 }
 
 func (c *jobController) GetTasks(jobID uuid.UUID) ([]*Task, error) {

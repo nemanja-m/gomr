@@ -129,3 +129,9 @@ type Task struct {
 	Attempt int
 	Error   *string
 }
+
+type JobFilter struct {
+	Status *JobStatus
+	Limit  int
+	Offset int
+}

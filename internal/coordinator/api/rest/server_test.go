@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
@@ -46,14 +47,24 @@ func (m *mockJobController) GetJob(id uuid.UUID) (*core.Job, error) {
 	return job, nil
 }
 
-func (m *mockJobController) GetJobs() ([]*core.Job, error) {
+func (m *mockJobController) GetJobs(filter core.JobFilter) ([]*core.Job, int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	jobs := make([]*core.Job, 0, len(m.jobs))
+
+	var filteredJobs []*core.Job
 	for _, job := range m.jobs {
-		jobs = append(jobs, job)
+		if filter.Status != nil && job.Status != *filter.Status {
+			continue
+		}
+		filteredJobs = append(filteredJobs, job)
 	}
-	return jobs, nil
+
+	total := len(filteredJobs)
+	start := min(filter.Offset, total)
+	end := min(start+filter.Limit, total)
+	pagedJobs := filteredJobs[start:end]
+
+	return pagedJobs, total, nil
 }
 
 func (m *mockJobController) GetTasks(jobID uuid.UUID) ([]*core.Task, error) {
@@ -759,5 +770,205 @@ func TestGetJobErrorsReturnsEmptyArray(t *testing.T) {
 	bodyStr := string(bodyBytes)
 	if !strings.Contains(bodyStr, `"errors":[]`) {
 		t.Errorf("Expected JSON to contain 'errors':[], got: %s", bodyStr)
+	}
+}
+
+func TestListJobsWithStatusFilter(t *testing.T) {
+	// Use the mock controller directly to set job statuses
+	mockCtrl := &mockJobController{
+		jobs:  make(map[uuid.UUID]*core.Job),
+		tasks: make(map[uuid.UUID][]*core.Task),
+	}
+
+	// Create jobs with different statuses
+	pendingJob := &core.Job{
+		ID:     uuid.New(),
+		Name:   "pending-job",
+		Status: core.JobStatusPending,
+		Input: core.InputConfig{
+			Type:  "s3",
+			Paths: []string{"s3://bucket/input/*.txt"},
+		},
+		Output: core.OutputConfig{
+			Type: "s3",
+			Path: "s3://bucket/output",
+		},
+		SubmittedAt: time.Now(),
+	}
+	mockCtrl.SubmitJob(pendingJob)
+
+	runningJob := &core.Job{
+		ID:     uuid.New(),
+		Name:   "running-job",
+		Status: core.JobStatusRunning,
+		Input: core.InputConfig{
+			Type:  "s3",
+			Paths: []string{"s3://bucket/input/*.txt"},
+		},
+		Output: core.OutputConfig{
+			Type: "s3",
+			Path: "s3://bucket/output",
+		},
+		SubmittedAt: time.Now(),
+	}
+	mockCtrl.jobs[runningJob.ID] = runningJob
+
+	completedJob := &core.Job{
+		ID:     uuid.New(),
+		Name:   "completed-job",
+		Status: core.JobStatusCompleted,
+		Input: core.InputConfig{
+			Type:  "s3",
+			Paths: []string{"s3://bucket/input/*.txt"},
+		},
+		Output: core.OutputConfig{
+			Type: "s3",
+			Path: "s3://bucket/output",
+		},
+		SubmittedAt: time.Now(),
+	}
+	mockCtrl.jobs[completedJob.ID] = completedJob
+
+	logger := newMockLogger()
+	api := NewAPI(mockCtrl, logger)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	// Test filtering by PENDING status
+	httpReq := httptest.NewRequest(http.MethodGet, "/api/jobs?status=PENDING", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, httpReq)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var resp ListJobsResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+
+	if resp.Total != 1 {
+		t.Errorf("Expected total 1 PENDING job, got %d", resp.Total)
+	}
+
+	if len(resp.Jobs) != 1 {
+		t.Errorf("Expected 1 PENDING job in response, got %d", len(resp.Jobs))
+	}
+
+	if resp.Jobs[0].Status != "PENDING" {
+		t.Errorf("Expected PENDING status, got %s", resp.Jobs[0].Status)
+	}
+
+	// Test filtering by RUNNING status
+	httpReq = httptest.NewRequest(http.MethodGet, "/api/jobs?status=RUNNING", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, httpReq)
+
+	var resp2 ListJobsResponse
+	json.NewDecoder(w.Body).Decode(&resp2)
+
+	if resp2.Total != 1 {
+		t.Errorf("Expected total 1 RUNNING job, got %d", resp2.Total)
+	}
+
+	// Test filtering by COMPLETED status
+	httpReq = httptest.NewRequest(http.MethodGet, "/api/jobs?status=COMPLETED", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, httpReq)
+
+	var resp3 ListJobsResponse
+	json.NewDecoder(w.Body).Decode(&resp3)
+
+	if resp3.Total != 1 {
+		t.Errorf("Expected total 1 COMPLETED job, got %d", resp3.Total)
+	}
+}
+
+func TestListJobsWithFilterAndPagination(t *testing.T) {
+	// Use the mock controller directly
+	mockCtrl := &mockJobController{
+		jobs:  make(map[uuid.UUID]*core.Job),
+		tasks: make(map[uuid.UUID][]*core.Task),
+	}
+
+	// Create 15 PENDING jobs and 5 RUNNING jobs
+	for i := 0; i < 15; i++ {
+		job := &core.Job{
+			ID:     uuid.New(),
+			Name:   "pending-job",
+			Status: core.JobStatusPending,
+			Input: core.InputConfig{
+				Type:  "s3",
+				Paths: []string{"s3://bucket/input/*.txt"},
+			},
+			Output: core.OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
+			},
+			SubmittedAt: time.Now(),
+		}
+		mockCtrl.SubmitJob(job)
+	}
+
+	for i := 0; i < 5; i++ {
+		job := &core.Job{
+			ID:     uuid.New(),
+			Name:   "running-job",
+			Status: core.JobStatusRunning,
+			Input: core.InputConfig{
+				Type:  "s3",
+				Paths: []string{"s3://bucket/input/*.txt"},
+			},
+			Output: core.OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
+			},
+			SubmittedAt: time.Now(),
+		}
+		mockCtrl.jobs[job.ID] = job
+	}
+
+	logger := newMockLogger()
+	api := NewAPI(mockCtrl, logger)
+	mux := http.NewServeMux()
+	api.RegisterRoutes(mux)
+
+	// Test filtering PENDING jobs with pagination (first page)
+	httpReq := httptest.NewRequest(http.MethodGet, "/api/jobs?status=PENDING&limit=10&offset=0", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, httpReq)
+
+	var resp ListJobsResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+
+	if resp.Total != 15 {
+		t.Errorf("Expected total 15 PENDING jobs, got %d", resp.Total)
+	}
+
+	if len(resp.Jobs) != 10 {
+		t.Errorf("Expected 10 jobs in first page, got %d", len(resp.Jobs))
+	}
+
+	if resp.NextOffset == nil || *resp.NextOffset != 10 {
+		t.Error("Expected next offset to be 10")
+	}
+
+	// Test filtering PENDING jobs with pagination (second page)
+	httpReq = httptest.NewRequest(http.MethodGet, "/api/jobs?status=PENDING&limit=10&offset=10", nil)
+	w = httptest.NewRecorder()
+	mux.ServeHTTP(w, httpReq)
+
+	var resp2 ListJobsResponse
+	json.NewDecoder(w.Body).Decode(&resp2)
+
+	if resp2.Total != 15 {
+		t.Errorf("Expected total 15 PENDING jobs, got %d", resp2.Total)
+	}
+
+	if len(resp2.Jobs) != 5 {
+		t.Errorf("Expected 5 jobs in second page, got %d", len(resp2.Jobs))
+	}
+
+	if resp2.NextOffset != nil {
+		t.Error("Expected no next offset on last page")
 	}
 }

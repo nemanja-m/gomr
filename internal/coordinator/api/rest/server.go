@@ -97,9 +97,6 @@ func (a *API) getJob(w http.ResponseWriter, r *http.Request) {
 func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 
-	// Parse filters
-	statusFilter := query.Get("status")
-
 	// Parse pagination
 	limit := 10
 	if limitStr := query.Get("limit"); limitStr != "" {
@@ -115,39 +112,37 @@ func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	jobs, err := a.jobController.GetJobs()
+	filter := core.JobFilter{
+		Limit:  limit,
+		Offset: offset,
+	}
+
+	if statusStr := query.Get("status"); statusStr != "" {
+		status := core.JobStatus(statusStr)
+		filter.Status = &status
+	}
+
+	jobs, total, err := a.jobController.GetJobs(filter)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to list jobs", err.Error())
 		return
 	}
 
-	allJobs := make([]JobSummary, 0)
+	jobSummaries := make([]JobSummary, 0, len(jobs))
 	for _, job := range jobs {
-		// Apply status filter if provided
-		if statusFilter != "" && string(job.Status) != statusFilter {
-			continue
-		}
-
 		summary := ToJobSummary(job)
-		allJobs = append(allJobs, summary)
+		jobSummaries = append(jobSummaries, summary)
 	}
-
-	total := len(allJobs)
-
-	start := min(offset, total)
-	end := min(start+limit, total)
-
-	pagedJobs := allJobs[start:end]
 
 	// Calculate next offset
 	var nextOffset *int
-	if end < total {
-		next := end
+	if offset+limit < total {
+		next := offset + limit
 		nextOffset = &next
 	}
 
 	resp := ListJobsResponse{
-		Jobs:       pagedJobs,
+		Jobs:       jobSummaries,
 		Total:      total,
 		Limit:      limit,
 		Offset:     offset,
