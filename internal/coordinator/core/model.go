@@ -51,7 +51,6 @@ type ExecutorSpec struct {
 }
 
 type JobConfig struct {
-	NumMappers  int
 	NumReducers int
 
 	MapTimeout    time.Duration

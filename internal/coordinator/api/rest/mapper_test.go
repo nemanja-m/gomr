@@ -29,7 +29,6 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				},
 			},
 			Config: JobConfig{
-				NumMappers:  10,
 				NumReducers: 5,
 			},
 			Metadata: map[string]string{
@@ -61,10 +60,6 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 
 		if job.Executors.Map.Type != "docker" {
 			t.Errorf("Expected map executor type docker, got %s", job.Executors.Map.Type)
-		}
-
-		if job.Config.NumMappers != 10 {
-			t.Errorf("Expected 10 mappers, got %d", job.Config.NumMappers)
 		}
 
 		if job.Config.NumReducers != 5 {
@@ -112,7 +107,6 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				Combiner: &combiner,
 			},
 			Config: JobConfig{
-				NumMappers:  10,
 				NumReducers: 5,
 			},
 		}
@@ -146,7 +140,6 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				},
 			},
 			Config: JobConfig{
-				NumMappers:  10,
 				NumReducers: 5,
 			},
 		}
@@ -179,7 +172,6 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				},
 			},
 			Config: JobConfig{
-				NumMappers:           10,
 				NumReducers:          5,
 				MapTimeoutSeconds:    &mapTimeout,
 				ReduceTimeoutSeconds: &reduceTimeout,
@@ -215,7 +207,6 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				},
 			},
 			Config: JobConfig{
-				NumMappers:  10,
 				NumReducers: 5,
 			},
 		}
@@ -252,7 +243,6 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				},
 			},
 			Config: JobConfig{
-				NumMappers:        10,
 				NumReducers:       5,
 				MaxMapAttempts:    &maxMapAttempts,
 				MaxReduceAttempts: &maxReduceAttempts,
@@ -288,7 +278,6 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				},
 			},
 			Config: JobConfig{
-				NumMappers:  10,
 				NumReducers: 5,
 			},
 		}

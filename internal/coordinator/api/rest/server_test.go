@@ -36,7 +36,6 @@ func TestSubmitJob(t *testing.T) {
 			},
 		},
 		Config: JobConfig{
-			NumMappers:  10,
 			NumReducers: 5,
 		},
 	}
@@ -64,8 +63,8 @@ func TestSubmitJob(t *testing.T) {
 		t.Errorf("Expected status PENDING, got %s", resp.Status)
 	}
 
-	if resp.EstimatedMapTasks != 10 {
-		t.Errorf("Expected 10 map tasks, got %d", resp.EstimatedMapTasks)
+	if resp.EstimatedMapTasks != 0 {
+		t.Errorf("Expected 0 map tasks (determined dynamically), got %d", resp.EstimatedMapTasks)
 	}
 
 	if resp.EstimatedReduceTasks != 5 {
@@ -103,7 +102,6 @@ func TestSubmitJobValidation(t *testing.T) {
 					},
 				},
 				Config: JobConfig{
-					NumMappers:  10,
 					NumReducers: 5,
 				},
 			},
@@ -127,14 +125,13 @@ func TestSubmitJobValidation(t *testing.T) {
 					},
 				},
 				Config: JobConfig{
-					NumMappers:  10,
 					NumReducers: 5,
 				},
 			},
 			wantErr: true,
 		},
 		{
-			name: "invalid numMappers",
+			name: "invalid numReducers",
 			req: SubmitJobRequest{
 				Name: "test-job",
 				Input: InputConfig{
@@ -152,8 +149,7 @@ func TestSubmitJobValidation(t *testing.T) {
 					},
 				},
 				Config: JobConfig{
-					NumMappers:  0,
-					NumReducers: 5,
+					NumReducers: 0,
 				},
 			},
 			wantErr: true,
@@ -201,7 +197,6 @@ func TestGetJob(t *testing.T) {
 			},
 		},
 		Config: JobConfig{
-			NumMappers:  10,
 			NumReducers: 5,
 		},
 	}
@@ -281,7 +276,6 @@ func TestListJobs(t *testing.T) {
 				},
 			},
 			Config: JobConfig{
-				NumMappers:  10,
 				NumReducers: 5,
 			},
 		}
@@ -342,7 +336,6 @@ func TestListJobsPagination(t *testing.T) {
 				},
 			},
 			Config: JobConfig{
-				NumMappers:  10,
 				NumReducers: 5,
 			},
 		}
@@ -416,7 +409,6 @@ func TestGetJobTasks(t *testing.T) {
 			},
 		},
 		Config: JobConfig{
-			NumMappers:  10,
 			NumReducers: 5,
 		},
 	}
@@ -531,7 +523,6 @@ func TestGetJobTasksReturnsEmptyArray(t *testing.T) {
 			},
 		},
 		Config: JobConfig{
-			NumMappers:  10,
 			NumReducers: 5,
 		},
 	}
@@ -602,7 +593,6 @@ func TestGetJobErrorsReturnsEmptyArray(t *testing.T) {
 			},
 		},
 		Config: JobConfig{
-			NumMappers:  10,
 			NumReducers: 5,
 		},
 	}

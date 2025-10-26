@@ -46,7 +46,6 @@ func (req *SubmitJobRequest) ToJob() *core.Job {
 			}(),
 		},
 		Config: core.JobConfig{
-			NumMappers:  req.Config.NumMappers,
 			NumReducers: req.Config.NumReducers,
 			MapTimeout: func() time.Duration {
 				if req.Config.MapTimeoutSeconds != nil {
@@ -75,7 +74,7 @@ func (req *SubmitJobRequest) ToJob() *core.Job {
 		},
 		Metadata: req.Metadata,
 
-		SubmittedAt: time.Now(),
+		SubmittedAt: time.Now().UTC(),
 		Errors:      []core.JobError{},
 	}
 }

@@ -58,7 +58,6 @@ Submit a new MapReduce job.
     }
   },
   "config": {
-    "numMappers": 10,
     "numReducers": 10,
     "maxMapAttempts": 3,
     "maxReduceAttempts": 3,
@@ -107,14 +106,14 @@ Retrieve detailed information about a specific job.
   "name": "word-count-20250925",
   "status": "MAPPING",
   "progress": {
-    "map_tasks": {
+    "map": {
       "total": 45,
       "completed": 32,
       "running": 8,
       "failed": 2,
       "pending": 3
     },
-    "reduce_tasks": {
+    "reduce": {
       "total": 10,
       "completed": 0,
       "running": 0,
@@ -125,9 +124,6 @@ Retrieve detailed information about a specific job.
   "timestamps": {
     "submitted": "2025-09-25T10:30:00Z",
     "started": "2025-09-25T10:30:05Z",
-    "mapping_started": "2025-09-25T10:30:05Z",
-    "mapping_completed": null,
-    "reducing_started": null,
     "completed": null
   },
   "output": {

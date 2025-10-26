@@ -54,14 +54,13 @@ func (a *API) submitJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Estimate tasks (simplified - in real implementation, would scan input)
-	estimatedMapTasks := req.Config.NumMappers
 	estimatedReduceTasks := req.Config.NumReducers
 
 	createResp := SubmitJobResponse{
 		JobID:                job.ID.String(),
 		Status:               string(job.Status),
 		SubmittedAt:          job.SubmittedAt,
-		EstimatedMapTasks:    estimatedMapTasks,
+		EstimatedMapTasks:    0, // Map tasks are determined dynamically based on input
 		EstimatedReduceTasks: estimatedReduceTasks,
 		Links: Links{
 			Self: fmt.Sprintf("/api/jobs/%s", job.ID.String()),
@@ -227,10 +226,6 @@ func (a *API) validateCreateJobRequest(req *SubmitJobRequest) error {
 
 	if req.Executors.Reduce.Type == "" || req.Executors.Reduce.URI == "" {
 		return fmt.Errorf("reduce executor type and URI are required")
-	}
-
-	if req.Config.NumMappers <= 0 {
-		return fmt.Errorf("numMappers must be greater than 0")
 	}
 
 	if req.Config.NumReducers <= 0 {

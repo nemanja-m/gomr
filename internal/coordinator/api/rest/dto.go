@@ -30,7 +30,6 @@ type ExecutorSpec struct {
 }
 
 type JobConfig struct {
-	NumMappers           int            `json:"numMappers"`
 	NumReducers          int            `json:"numReducers"`
 	MaxMapAttempts       *int           `json:"maxMapAttempts,omitempty"`
 	MaxReduceAttempts    *int           `json:"maxReduceAttempts,omitempty"`
