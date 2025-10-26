@@ -22,6 +22,7 @@ type Job struct {
 	Status    JobStatus
 	Progress  JobProgress
 	Input     InputConfig
+	Output    OutputConfig
 	Executors ExecutorsConfig
 	Config    JobConfig
 	Metadata  map[string]string
@@ -37,6 +38,11 @@ type InputConfig struct {
 	Type   string
 	Format string
 	Paths  []string
+}
+
+type OutputConfig struct {
+	Type string
+	Path string
 }
 
 type ExecutorsConfig struct {

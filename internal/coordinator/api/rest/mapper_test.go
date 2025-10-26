@@ -18,6 +18,10 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				Paths:  []string{"s3://bucket/input/*.txt"},
 				Format: "text",
 			},
+			Output: OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
+			},
 			Executors: ExecutorsConfig{
 				Map: ExecutorSpec{
 					Type: "docker",
@@ -58,6 +62,14 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 			t.Errorf("Expected input paths to be preserved, got %v", job.Input.Paths)
 		}
 
+		if job.Output.Type != "s3" {
+			t.Errorf("Expected output type s3, got %s", job.Output.Type)
+		}
+
+		if job.Output.Path != "s3://bucket/output" {
+			t.Errorf("Expected output path s3://bucket/output, got %s", job.Output.Path)
+		}
+
 		if job.Executors.Map.Type != "docker" {
 			t.Errorf("Expected map executor type docker, got %s", job.Executors.Map.Type)
 		}
@@ -95,6 +107,10 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				Type:  "s3",
 				Paths: []string{"s3://bucket/input/*.txt"},
 			},
+			Output: OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
+			},
 			Executors: ExecutorsConfig{
 				Map: ExecutorSpec{
 					Type: "docker",
@@ -129,6 +145,10 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				Type:  "s3",
 				Paths: []string{"s3://bucket/input/*.txt"},
 			},
+			Output: OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
+			},
 			Executors: ExecutorsConfig{
 				Map: ExecutorSpec{
 					Type: "docker",
@@ -160,6 +180,10 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 			Input: InputConfig{
 				Type:  "s3",
 				Paths: []string{"s3://bucket/input/*.txt"},
+			},
+			Output: OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
 			},
 			Executors: ExecutorsConfig{
 				Map: ExecutorSpec{
@@ -195,6 +219,10 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 			Input: InputConfig{
 				Type:  "s3",
 				Paths: []string{"s3://bucket/input/*.txt"},
+			},
+			Output: OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
 			},
 			Executors: ExecutorsConfig{
 				Map: ExecutorSpec{
@@ -232,6 +260,10 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 				Type:  "s3",
 				Paths: []string{"s3://bucket/input/*.txt"},
 			},
+			Output: OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
+			},
 			Executors: ExecutorsConfig{
 				Map: ExecutorSpec{
 					Type: "docker",
@@ -266,6 +298,10 @@ func TestSubmitJobRequestToJob(t *testing.T) {
 			Input: InputConfig{
 				Type:  "s3",
 				Paths: []string{"s3://bucket/input/*.txt"},
+			},
+			Output: OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
 			},
 			Executors: ExecutorsConfig{
 				Map: ExecutorSpec{
@@ -303,6 +339,10 @@ func TestToGetJobResponse(t *testing.T) {
 			ID:     jobID,
 			Name:   "test-job",
 			Status: core.JobStatusRunning,
+			Output: core.OutputConfig{
+				Type: "local",
+				Path: "file://test",
+			},
 			Progress: core.JobProgress{
 				Map: core.TaskProgress{
 					Total:     10,
@@ -347,6 +387,10 @@ func TestToGetJobResponse(t *testing.T) {
 
 		if resp.Timestamps.Submitted != submittedAt {
 			t.Error("Expected submitted timestamp to be preserved")
+		}
+
+		if resp.Output.Location != "file://test" {
+			t.Errorf("Expected output location file://test, got %s", resp.Output.Location)
 		}
 
 		if resp.Output.Available {

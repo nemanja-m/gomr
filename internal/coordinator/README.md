@@ -43,6 +43,10 @@ Submit a new MapReduce job.
     "paths": ["s3://my-bucket/input/*.txt"],
     "format": "text"
   },
+  "output": {
+    "type": "s3",
+    "path": "s3://my-bucket/output/"
+  },
   "executors": {
     "map": {
       "type": "docker",
@@ -127,7 +131,7 @@ Retrieve detailed information about a specific job.
     "completed": null
   },
   "output": {
-    "location": "s3://my-bucket/jobs/job-a1b2c3d4/out/",
+    "location": "s3://my-bucket/output/",
     "available": false
   },
   "errors": [
@@ -198,7 +202,6 @@ Retrieve all tasks for a specific job.
       "task_id": "map-001",
       "type": "MAP",
       "status": "COMPLETED",
-      "worker_id": "worker-0",
       "attempts": 1,
       "start_time": "2025-09-25T10:30:10Z",
       "end_time": "2025-09-25T10:32:45Z"
@@ -207,7 +210,6 @@ Retrieve all tasks for a specific job.
       "task_id": "reduce-001",
       "type": "REDUCE",
       "status": "RUNNING",
-      "worker_id": "worker-1",
       "attempts": 1,
       "start_time": "2025-09-25T10:35:00Z",
       "end_time": null
@@ -242,12 +244,15 @@ curl -X POST http://localhost:8080/api/jobs \
       "paths": ["s3://bucket/input/*.txt"],
       "format": "text"
     },
+    "output": {
+      "type": "s3",
+      "path": "s3://bucket/putput/"
+    },
     "executors": {
       "map": {"type": "docker", "uri": "wordcount-map:latest"},
       "reduce": {"type": "docker", "uri": "wordcount-reduce:latest"}
     },
     "config": {
-      "numMappers": 4,
       "numReducers": 2
     }
   }'

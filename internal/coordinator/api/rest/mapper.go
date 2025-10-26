@@ -26,6 +26,10 @@ func (req *SubmitJobRequest) ToJob() *core.Job {
 			Format: req.Input.Format,
 			Paths:  req.Input.Paths,
 		},
+		Output: core.OutputConfig{
+			Type: req.Output.Type,
+			Path: req.Output.Path,
+		},
 		Executors: core.ExecutorsConfig{
 			Map: core.ExecutorSpec{
 				Type: req.Executors.Map.Type,
@@ -116,7 +120,7 @@ func ToGetJobResponse(job *core.Job) GetJobResponse {
 			Completed: job.CompletedAt,
 		},
 		Output: OutputInfo{
-			Location:  "",
+			Location:  job.Output.Path,
 			Available: false,
 		},
 		Errors: errors,

@@ -7,6 +7,7 @@ import (
 type SubmitJobRequest struct {
 	Name      string            `json:"name"`
 	Input     InputConfig       `json:"input"`
+	Output    OutputConfig      `json:"output"`
 	Executors ExecutorsConfig   `json:"executors"`
 	Config    JobConfig         `json:"config"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
@@ -16,6 +17,11 @@ type InputConfig struct {
 	Type   string   `json:"type"`   // "s3", "gcs", "local", etc.
 	Paths  []string `json:"paths"`  // Glob patterns or specific paths
 	Format string   `json:"format"` // "text", "json", "csv", "parquet", etc.
+}
+
+type OutputConfig struct {
+	Type string `json:"type"` // "s3", "gcs", "local", etc.
+	Path string `json:"path"` // Output path or bucket location
 }
 
 type ExecutorsConfig struct {

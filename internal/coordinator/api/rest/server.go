@@ -220,6 +220,14 @@ func (a *API) validateCreateJobRequest(req *SubmitJobRequest) error {
 		return fmt.Errorf("at least one input path is required")
 	}
 
+	if req.Output.Type == "" {
+		return fmt.Errorf("output type is required")
+	}
+
+	if req.Output.Path == "" {
+		return fmt.Errorf("output path is required")
+	}
+
 	if req.Executors.Map.Type == "" || req.Executors.Map.URI == "" {
 		return fmt.Errorf("map executor type and URI are required")
 	}

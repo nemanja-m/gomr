@@ -25,6 +25,10 @@ func TestSubmitJob(t *testing.T) {
 			Paths:  []string{"s3://bucket/input/*.txt"},
 			Format: "text",
 		},
+		Output: OutputConfig{
+			Type: "s3",
+			Path: "s3://bucket/output",
+		},
 		Executors: ExecutorsConfig{
 			Map: ExecutorSpec{
 				Type: "docker",
@@ -91,6 +95,10 @@ func TestSubmitJobValidation(t *testing.T) {
 					Type:  "s3",
 					Paths: []string{"s3://bucket/input/*.txt"},
 				},
+				Output: OutputConfig{
+					Type: "s3",
+					Path: "s3://bucket/output",
+				},
 				Executors: ExecutorsConfig{
 					Map: ExecutorSpec{
 						Type: "docker",
@@ -113,6 +121,10 @@ func TestSubmitJobValidation(t *testing.T) {
 				Name: "test-job",
 				Input: InputConfig{
 					Type: "s3",
+				},
+				Output: OutputConfig{
+					Type: "s3",
+					Path: "s3://bucket/output",
 				},
 				Executors: ExecutorsConfig{
 					Map: ExecutorSpec{
@@ -138,6 +150,10 @@ func TestSubmitJobValidation(t *testing.T) {
 					Type:  "s3",
 					Paths: []string{"s3://bucket/input/*.txt"},
 				},
+				Output: OutputConfig{
+					Type: "s3",
+					Path: "s3://bucket/output",
+				},
 				Executors: ExecutorsConfig{
 					Map: ExecutorSpec{
 						Type: "docker",
@@ -150,6 +166,60 @@ func TestSubmitJobValidation(t *testing.T) {
 				},
 				Config: JobConfig{
 					NumReducers: 0,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing output type",
+			req: SubmitJobRequest{
+				Name: "test-job",
+				Input: InputConfig{
+					Type:  "s3",
+					Paths: []string{"s3://bucket/input/*.txt"},
+				},
+				Output: OutputConfig{
+					Path: "s3://bucket/output",
+				},
+				Executors: ExecutorsConfig{
+					Map: ExecutorSpec{
+						Type: "docker",
+						URI:  "map:latest",
+					},
+					Reduce: ExecutorSpec{
+						Type: "docker",
+						URI:  "reduce:latest",
+					},
+				},
+				Config: JobConfig{
+					NumReducers: 5,
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing output path",
+			req: SubmitJobRequest{
+				Name: "test-job",
+				Input: InputConfig{
+					Type:  "s3",
+					Paths: []string{"s3://bucket/input/*.txt"},
+				},
+				Output: OutputConfig{
+					Type: "s3",
+				},
+				Executors: ExecutorsConfig{
+					Map: ExecutorSpec{
+						Type: "docker",
+						URI:  "map:latest",
+					},
+					Reduce: ExecutorSpec{
+						Type: "docker",
+						URI:  "reduce:latest",
+					},
+				},
+				Config: JobConfig{
+					NumReducers: 5,
 				},
 			},
 			wantErr: true,
@@ -185,6 +255,10 @@ func TestGetJob(t *testing.T) {
 			Type:   "s3",
 			Paths:  []string{"s3://bucket/input/*.txt"},
 			Format: "text",
+		},
+		Output: OutputConfig{
+			Type: "s3",
+			Path: "s3://bucket/output",
 		},
 		Executors: ExecutorsConfig{
 			Map: ExecutorSpec{
@@ -265,6 +339,10 @@ func TestListJobs(t *testing.T) {
 				Paths:  []string{"s3://bucket/input/*.txt"},
 				Format: "text",
 			},
+			Output: OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
+			},
 			Executors: ExecutorsConfig{
 				Map: ExecutorSpec{
 					Type: "docker",
@@ -324,6 +402,10 @@ func TestListJobsPagination(t *testing.T) {
 				Type:   "s3",
 				Paths:  []string{"s3://bucket/input/*.txt"},
 				Format: "text",
+			},
+			Output: OutputConfig{
+				Type: "s3",
+				Path: "s3://bucket/output",
 			},
 			Executors: ExecutorsConfig{
 				Map: ExecutorSpec{
@@ -397,6 +479,10 @@ func TestGetJobTasks(t *testing.T) {
 			Type:   "s3",
 			Paths:  []string{"s3://bucket/input/*.txt"},
 			Format: "text",
+		},
+		Output: OutputConfig{
+			Type: "s3",
+			Path: "s3://bucket/output",
 		},
 		Executors: ExecutorsConfig{
 			Map: ExecutorSpec{
@@ -512,6 +598,10 @@ func TestGetJobTasksReturnsEmptyArray(t *testing.T) {
 			Paths:  []string{"s3://bucket/input/*.txt"},
 			Format: "text",
 		},
+		Output: OutputConfig{
+			Type: "s3",
+			Path: "s3://bucket/output",
+		},
 		Executors: ExecutorsConfig{
 			Map: ExecutorSpec{
 				Type: "docker",
@@ -581,6 +671,10 @@ func TestGetJobErrorsReturnsEmptyArray(t *testing.T) {
 			Type:   "s3",
 			Paths:  []string{"s3://bucket/input/*.txt"},
 			Format: "text",
+		},
+		Output: OutputConfig{
+			Type: "s3",
+			Path: "s3://bucket/output",
 		},
 		Executors: ExecutorsConfig{
 			Map: ExecutorSpec{
