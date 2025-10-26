@@ -7,14 +7,18 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/nemanja-m/gomr/internal/coordinator/storage"
 )
 
-func TestCreateJob(t *testing.T) {
-	api := NewAPI(newMockLogger())
+func TestSubmitJob(t *testing.T) {
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	req := CreateJobRequest{
+	req := SubmitJobRequest{
 		Name: "test-wordcount",
 		Input: InputConfig{
 			Type:   "s3",
@@ -47,7 +51,7 @@ func TestCreateJob(t *testing.T) {
 		t.Errorf("Expected status 201, got %d", w.Code)
 	}
 
-	var resp CreateJobResponse
+	var resp SubmitJobResponse
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -56,8 +60,8 @@ func TestCreateJob(t *testing.T) {
 		t.Error("Expected job ID to be set")
 	}
 
-	if resp.Status != "SUBMITTED" {
-		t.Errorf("Expected status SUBMITTED, got %s", resp.Status)
+	if resp.Status != "PENDING" {
+		t.Errorf("Expected status PENDING, got %s", resp.Status)
 	}
 
 	if resp.EstimatedMapTasks != 10 {
@@ -69,19 +73,21 @@ func TestCreateJob(t *testing.T) {
 	}
 }
 
-func TestCreateJobValidation(t *testing.T) {
-	api := NewAPI(newMockLogger())
+func TestSubmitJobValidation(t *testing.T) {
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
 	tests := []struct {
 		name    string
-		req     CreateJobRequest
+		req     SubmitJobRequest
 		wantErr bool
 	}{
 		{
 			name: "missing name",
-			req: CreateJobRequest{
+			req: SubmitJobRequest{
 				Input: InputConfig{
 					Type:  "s3",
 					Paths: []string{"s3://bucket/input/*.txt"},
@@ -105,7 +111,7 @@ func TestCreateJobValidation(t *testing.T) {
 		},
 		{
 			name: "missing input paths",
-			req: CreateJobRequest{
+			req: SubmitJobRequest{
 				Name: "test-job",
 				Input: InputConfig{
 					Type: "s3",
@@ -129,7 +135,7 @@ func TestCreateJobValidation(t *testing.T) {
 		},
 		{
 			name: "invalid numMappers",
-			req: CreateJobRequest{
+			req: SubmitJobRequest{
 				Name: "test-job",
 				Input: InputConfig{
 					Type:  "s3",
@@ -170,12 +176,14 @@ func TestCreateJobValidation(t *testing.T) {
 }
 
 func TestGetJob(t *testing.T) {
-	api := NewAPI(newMockLogger())
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
 	// First create a job
-	req := CreateJobRequest{
+	req := SubmitJobRequest{
 		Name: "test-job",
 		Input: InputConfig{
 			Type:   "s3",
@@ -203,7 +211,7 @@ func TestGetJob(t *testing.T) {
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, httpReq)
 
-	var createResp CreateJobResponse
+	var createResp SubmitJobResponse
 	json.NewDecoder(w.Body).Decode(&createResp)
 
 	// Now get the job
@@ -230,11 +238,14 @@ func TestGetJob(t *testing.T) {
 }
 
 func TestGetJobNotFound(t *testing.T) {
-	api := NewAPI(newMockLogger())
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	httpReq := httptest.NewRequest(http.MethodGet, "/api/jobs/nonexistent", nil)
+	// Use a valid UUID that doesn't exist in the store
+	httpReq := httptest.NewRequest(http.MethodGet, "/api/jobs/00000000-0000-0000-0000-000000000000", nil)
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, httpReq)
 
@@ -244,13 +255,15 @@ func TestGetJobNotFound(t *testing.T) {
 }
 
 func TestListJobs(t *testing.T) {
-	api := NewAPI(newMockLogger())
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
 	// Create several jobs
-	for i := 0; i < 3; i++ {
-		req := CreateJobRequest{
+	for range 3 {
+		req := SubmitJobRequest{
 			Name: "test-job",
 			Input: InputConfig{
 				Type:   "s3",
@@ -303,13 +316,15 @@ func TestListJobs(t *testing.T) {
 }
 
 func TestListJobsPagination(t *testing.T) {
-	api := NewAPI(newMockLogger())
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
 	// Create 15 jobs
-	for i := 0; i < 15; i++ {
-		req := CreateJobRequest{
+	for range 15 {
+		req := SubmitJobRequest{
 			Name: "test-job",
 			Input: InputConfig{
 				Type:   "s3",
@@ -376,12 +391,14 @@ func TestListJobsPagination(t *testing.T) {
 }
 
 func TestGetJobTasks(t *testing.T) {
-	api := NewAPI(newMockLogger())
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
 	// Create a job
-	req := CreateJobRequest{
+	req := SubmitJobRequest{
 		Name: "test-job",
 		Input: InputConfig{
 			Type:   "s3",
@@ -409,7 +426,7 @@ func TestGetJobTasks(t *testing.T) {
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, httpReq)
 
-	var createResp CreateJobResponse
+	var createResp SubmitJobResponse
 	json.NewDecoder(w.Body).Decode(&createResp)
 
 	// Get tasks
@@ -433,7 +450,9 @@ func TestGetJobTasks(t *testing.T) {
 }
 
 func TestMethodNotAllowed(t *testing.T) {
-	api := NewAPI(newMockLogger())
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -448,7 +467,9 @@ func TestMethodNotAllowed(t *testing.T) {
 }
 
 func TestListJobsReturnsEmptyArray(t *testing.T) {
-	api := NewAPI(newMockLogger())
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -485,12 +506,14 @@ func TestListJobsReturnsEmptyArray(t *testing.T) {
 }
 
 func TestGetJobTasksReturnsEmptyArray(t *testing.T) {
-	api := NewAPI(newMockLogger())
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
 	// First create a job
-	req := CreateJobRequest{
+	req := SubmitJobRequest{
 		Name: "test-job",
 		Input: InputConfig{
 			Type:   "s3",
@@ -518,7 +541,7 @@ func TestGetJobTasksReturnsEmptyArray(t *testing.T) {
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, httpReq)
 
-	var createResp CreateJobResponse
+	var createResp SubmitJobResponse
 	json.NewDecoder(w.Body).Decode(&createResp)
 
 	// Get tasks for the job
@@ -554,12 +577,14 @@ func TestGetJobTasksReturnsEmptyArray(t *testing.T) {
 }
 
 func TestGetJobErrorsReturnsEmptyArray(t *testing.T) {
-	api := NewAPI(newMockLogger())
+	jobStore := storage.NewInMemoryJobStore()
+	taskStore := storage.NewInMemoryTaskStore()
+	api := NewAPI(jobStore, taskStore, newMockLogger())
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
 	// First create a job
-	req := CreateJobRequest{
+	req := SubmitJobRequest{
 		Name: "test-job",
 		Input: InputConfig{
 			Type:   "s3",
@@ -587,7 +612,7 @@ func TestGetJobErrorsReturnsEmptyArray(t *testing.T) {
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, httpReq)
 
-	var createResp CreateJobResponse
+	var createResp SubmitJobResponse
 	json.NewDecoder(w.Body).Decode(&createResp)
 
 	// Get the job

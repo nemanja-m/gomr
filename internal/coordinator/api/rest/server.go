@@ -5,44 +5,38 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/nemanja-m/gomr/internal/coordinator/core"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 )
 
-type JobInfo struct {
-	Request   CreateJobRequest
-	Response  GetJobResponse
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
 type API struct {
-	mu     sync.RWMutex
-	jobs   map[string]*JobInfo
-	tasks  map[string][]TaskInfo // jobID -> tasks
-	logger logging.Logger
+	jobStore  core.JobStore
+	taskStore core.TaskStore
+	logger    logging.Logger
 }
 
-func NewAPI(logger logging.Logger) *API {
+func NewAPI(jobStore core.JobStore, taskStore core.TaskStore, logger logging.Logger) *API {
 	return &API{
-		jobs:   make(map[string]*JobInfo),
-		tasks:  make(map[string][]TaskInfo),
-		logger: logger,
+		jobStore:  jobStore,
+		taskStore: taskStore,
+		logger:    logger,
 	}
 }
 
 func (a *API) RegisterRoutes(mux *http.ServeMux) {
-	mux.HandleFunc("POST /api/jobs", a.createJob)
+	mux.HandleFunc("POST /api/jobs", a.submitJob)
 	mux.HandleFunc("GET /api/jobs", a.listJobs)
 	mux.HandleFunc("GET /api/jobs/{id}", a.getJob)
 	mux.HandleFunc("GET /api/jobs/{id}/tasks", a.getJobTasks)
 }
 
-func (a *API) createJob(w http.ResponseWriter, r *http.Request) {
-	var req CreateJobRequest
+// submitJob handles POST /api/jobs
+func (a *API) submitJob(w http.ResponseWriter, r *http.Request) {
+	var req SubmitJobRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		a.respondError(w, http.StatusBadRequest, "invalid request body", err.Error())
 		return
@@ -53,85 +47,58 @@ func (a *API) createJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jobID := uuid.New().String()
-	now := time.Now().UTC()
+	job := req.ToJob()
+	if err := a.jobStore.SaveJob(job); err != nil {
+		a.respondError(w, http.StatusInternalServerError, "failed to save job", err.Error())
+		return
+	}
 
 	// Estimate tasks (simplified - in real implementation, would scan input)
 	estimatedMapTasks := req.Config.NumMappers
 	estimatedReduceTasks := req.Config.NumReducers
 
-	createResp := CreateJobResponse{
-		JobID:                jobID,
-		Status:               "SUBMITTED",
-		SubmittedAt:          now,
+	createResp := SubmitJobResponse{
+		JobID:                job.ID.String(),
+		Status:               string(job.Status),
+		SubmittedAt:          job.SubmittedAt,
 		EstimatedMapTasks:    estimatedMapTasks,
 		EstimatedReduceTasks: estimatedReduceTasks,
 		Links: Links{
-			Self: fmt.Sprintf("/api/jobs/%s", jobID),
+			Self: fmt.Sprintf("/api/jobs/%s", job.ID.String()),
 		},
 	}
-
-	jobInfo := &JobInfo{
-		Request:   req,
-		CreatedAt: now,
-		UpdatedAt: now,
-		Response: GetJobResponse{
-			JobID:  jobID,
-			Name:   req.Name,
-			Status: "SUBMITTED",
-			Progress: ProgressInfo{
-				MapTasks: TaskProgress{
-					Total:     estimatedMapTasks,
-					Completed: 0,
-					Running:   0,
-					Failed:    0,
-					Pending:   estimatedMapTasks,
-				},
-				ReduceTasks: TaskProgress{
-					Total:     estimatedReduceTasks,
-					Completed: 0,
-					Running:   0,
-					Failed:    0,
-					Pending:   estimatedReduceTasks,
-				},
-			},
-			Timestamps: TimestampsInfo{
-				Submitted: now,
-			},
-			Output: OutputInfo{
-				Location:  fmt.Sprintf("s3://output-bucket/jobs/%s/out/", jobID),
-				Available: false,
-			},
-			Errors: []ErrorInfo{},
-		},
-	}
-
-	a.mu.Lock()
-	a.jobs[jobID] = jobInfo
-	a.tasks[jobID] = []TaskInfo{}
-	a.mu.Unlock()
 
 	a.respondJSON(w, http.StatusCreated, createResp)
 }
 
 // getJob handles GET /api/jobs/{id}
 func (a *API) getJob(w http.ResponseWriter, r *http.Request) {
-	jobID := r.PathValue("id")
-	if jobID == "" {
+	jobIDStr := r.PathValue("id")
+	if jobIDStr == "" {
 		a.respondError(w, http.StatusBadRequest, "job ID required", "")
 		return
 	}
 
-	a.mu.RLock()
-	jobInfo, exists := a.jobs[jobID]
-	a.mu.RUnlock()
+	jobID, err := uuid.Parse(jobIDStr)
+	if err != nil {
+		a.respondError(w, http.StatusBadRequest, "invalid job ID format", err.Error())
+		return
+	}
 
-	if !exists {
+	job, err := a.jobStore.GetJobByID(jobID)
+	if err != nil {
+		a.respondError(w, http.StatusInternalServerError, "failed to get job", err.Error())
+		return
+	}
+
+	if job == nil {
 		a.respondError(w, http.StatusNotFound, "job not found", "")
 		return
 	}
 
-	a.respondJSON(w, http.StatusOK, jobInfo.Response)
+	resp := ToGetJobResponse(job)
+
+	a.respondJSON(w, http.StatusOK, resp)
 }
 
 // listJobs handles GET /api/jobs with filters and pagination
@@ -156,23 +123,20 @@ func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	a.mu.RLock()
-	defer a.mu.RUnlock()
+	jobs, err := a.jobStore.ListJobs()
+	if err != nil {
+		a.respondError(w, http.StatusInternalServerError, "failed to list jobs", err.Error())
+		return
+	}
 
 	allJobs := make([]JobSummary, 0)
-	for jobID, jobInfo := range a.jobs {
+	for _, job := range jobs {
 		// Apply status filter if provided
-		if statusFilter != "" && jobInfo.Response.Status != statusFilter {
+		if statusFilter != "" && string(job.Status) != statusFilter {
 			continue
 		}
 
-		summary := JobSummary{
-			JobID:       jobID,
-			Name:        jobInfo.Request.Name,
-			Status:      jobInfo.Response.Status,
-			SubmittedAt: jobInfo.Response.Timestamps.Submitted,
-			CompletedAt: jobInfo.Response.Timestamps.Completed,
-		}
+		summary := ToJobSummary(job)
 		allJobs = append(allJobs, summary)
 	}
 
@@ -203,30 +167,48 @@ func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 
 // getJobTasks handles GET /api/jobs/{id}/tasks
 func (a *API) getJobTasks(w http.ResponseWriter, r *http.Request) {
-	jobID := r.PathValue("id")
-	if jobID == "" {
+	jobIDStr := r.PathValue("id")
+	if jobIDStr == "" {
 		a.respondError(w, http.StatusBadRequest, "job ID required", "")
 		return
 	}
 
-	a.mu.RLock()
-	tasks, exists := a.tasks[jobID]
-	a.mu.RUnlock()
+	jobID, err := uuid.Parse(jobIDStr)
+	if err != nil {
+		a.respondError(w, http.StatusBadRequest, "invalid job ID format", err.Error())
+		return
+	}
 
-	if !exists {
+	// Check if job exists
+	job, err := a.jobStore.GetJobByID(jobID)
+	if err != nil {
+		a.respondError(w, http.StatusInternalServerError, "failed to get job", err.Error())
+		return
+	}
+
+	if job == nil {
 		a.respondError(w, http.StatusNotFound, "job not found", "")
 		return
 	}
 
-	resp := GetTasksResponse{
-		Tasks: tasks,
+	tasks, err := a.taskStore.ListTasksByJobID(jobID)
+	if err != nil {
+		a.respondError(w, http.StatusInternalServerError, "failed to list tasks", err.Error())
+		return
 	}
+
+	taskInfos := make([]TaskInfo, 0, len(tasks))
+	for _, task := range tasks {
+		taskInfos = append(taskInfos, ToTaskInfo(task))
+	}
+
+	resp := GetTasksResponse{Tasks: taskInfos}
 
 	a.respondJSON(w, http.StatusOK, resp)
 }
 
 // validateCreateJobRequest validates the create job request
-func (a *API) validateCreateJobRequest(req *CreateJobRequest) error {
+func (a *API) validateCreateJobRequest(req *SubmitJobRequest) error {
 	if req.Name == "" {
 		return fmt.Errorf("job name is required")
 	}
@@ -279,8 +261,13 @@ const (
 	idleTimeout  = 60 * time.Second
 )
 
-func NewServer(addr string, logger logging.Logger) *http.Server {
-	api := NewAPI(logger)
+func NewServer(
+	addr string,
+	jobStore core.JobStore,
+	taskStore core.TaskStore,
+	logger logging.Logger,
+) *http.Server {
+	api := NewAPI(jobStore, taskStore, logger)
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 

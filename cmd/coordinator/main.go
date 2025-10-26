@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/nemanja-m/gomr/internal/coordinator/api/rest"
+	"github.com/nemanja-m/gomr/internal/coordinator/storage"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 )
 
@@ -19,7 +20,12 @@ func main() {
 	}
 
 	logger := logging.NewSlogLogger(slog.LevelInfo)
-	server := rest.NewServer(addr, logger)
+	server := rest.NewServer(
+		addr,
+		storage.NewInMemoryJobStore(),
+		storage.NewInMemoryTaskStore(),
+		logger,
+	)
 
 	go func() {
 		logger.Info("Starting coordinator API server", "address", addr)

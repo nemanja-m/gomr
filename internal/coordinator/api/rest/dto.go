@@ -1,8 +1,10 @@
 package rest
 
-import "time"
+import (
+	"time"
+)
 
-type CreateJobRequest struct {
+type SubmitJobRequest struct {
 	Name      string            `json:"name"`
 	Input     InputConfig       `json:"input"`
 	Executors ExecutorsConfig   `json:"executors"`
@@ -39,8 +41,8 @@ type JobConfig struct {
 
 type RuntimeConfig struct {
 	DefaultType string         `json:"defaultType"`
-	Resources   ResourceConfig `json:"resources"`
 	PullPolicy  string         `json:"pullPolicy"` // "Always", "IfNotPresent", "Never"
+	Resources   ResourceConfig `json:"resources"`
 }
 
 type ResourceConfig struct {
@@ -48,7 +50,7 @@ type ResourceConfig struct {
 	Memory string `json:"memory"`
 }
 
-type CreateJobResponse struct {
+type SubmitJobResponse struct {
 	JobID                string    `json:"job_id"`
 	Status               string    `json:"status"`
 	SubmittedAt          time.Time `json:"submitted_at"`
@@ -72,25 +74,22 @@ type GetJobResponse struct {
 }
 
 type ProgressInfo struct {
-	MapTasks    TaskProgress `json:"map_tasks"`
-	ReduceTasks TaskProgress `json:"reduce_tasks"`
+	Map    TaskProgress `json:"map"`
+	Reduce TaskProgress `json:"reduce"`
 }
 
 type TaskProgress struct {
 	Total     int `json:"total"`
-	Completed int `json:"completed"`
-	Running   int `json:"running"`
-	Failed    int `json:"failed"`
 	Pending   int `json:"pending"`
+	Running   int `json:"running"`
+	Completed int `json:"completed"`
+	Failed    int `json:"failed"`
 }
 
 type TimestampsInfo struct {
-	Submitted        time.Time  `json:"submitted"`
-	Started          *time.Time `json:"started"`
-	MappingStarted   *time.Time `json:"mapping_started"`
-	MappingCompleted *time.Time `json:"mapping_completed"`
-	ReducingStarted  *time.Time `json:"reducing_started"`
-	Completed        *time.Time `json:"completed"`
+	Submitted time.Time  `json:"submitted"`
+	Started   *time.Time `json:"started"`
+	Completed *time.Time `json:"completed"`
 }
 
 type OutputInfo struct {
@@ -129,7 +128,6 @@ type TaskInfo struct {
 	TaskID    string     `json:"task_id"`
 	Type      string     `json:"type"` // "MAP" or "REDUCE"
 	Status    string     `json:"status"`
-	WorkerID  string     `json:"worker_id,omitempty"`
 	Attempts  int        `json:"attempts"`
 	StartTime *time.Time `json:"start_time,omitempty"`
 	EndTime   *time.Time `json:"end_time,omitempty"`
