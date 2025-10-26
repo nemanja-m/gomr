@@ -16,7 +16,6 @@ type JobController interface {
 	GetJob(id uuid.UUID) (*Job, error)
 	GetJobs(filter JobFilter) ([]*Job, int, error)
 	GetTasks(jobID uuid.UUID) ([]*Task, error)
-
 	NextTask() (*Task, error)
 }
 
@@ -31,8 +30,9 @@ type jobController struct {
 
 func NewJobController(jobStore JobStore, logger logging.Logger) JobController {
 	return &jobController{
-		jobStore: jobStore,
-		logger:   logger,
+		jobStore:   jobStore,
+		taskQueues: make(map[uuid.UUID]TaskPriorityQueue),
+		logger:     logger,
 	}
 }
 
