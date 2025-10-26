@@ -9,13 +9,15 @@ import (
 )
 
 type InMemoryJobStore struct {
-	mu   sync.RWMutex
-	jobs map[string]*core.Job
+	mu    sync.RWMutex
+	jobs  map[string]*core.Job
+	tasks map[string][]*core.Task // jobID -> tasks
 }
 
 func NewInMemoryJobStore() *InMemoryJobStore {
 	return &InMemoryJobStore{
-		jobs: make(map[string]*core.Job),
+		jobs:  make(map[string]*core.Job),
+		tasks: make(map[string][]*core.Task),
 	}
 }
 
@@ -53,48 +55,53 @@ func (s *InMemoryJobStore) ListJobs() ([]*core.Job, error) {
 	return jobs, nil
 }
 
-type InMemoryTaskStore struct {
-	mu    sync.RWMutex
-	tasks map[string]*core.Task
-}
-
-func NewInMemoryTaskStore() *InMemoryTaskStore {
-	return &InMemoryTaskStore{
-		tasks: make(map[string]*core.Task),
-	}
-}
-func (s *InMemoryTaskStore) SaveTask(task *core.Task) error {
+func (s *InMemoryJobStore) SaveTask(task *core.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.tasks[task.ID.String()] = task
+	s.tasks[task.JobID.String()] = append(s.tasks[task.JobID.String()], task)
 	return nil
 }
 
-func (s *InMemoryTaskStore) UpdateTask(task *core.Task) error {
+func (s *InMemoryJobStore) SaveTasks(tasks []*core.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.tasks[task.ID.String()] = task
+	if len(tasks) == 0 {
+		return nil
+	}
+	jobID := tasks[0].JobID.String()
+	s.tasks[jobID] = append(s.tasks[jobID], tasks...)
 	return nil
 }
 
-func (s *InMemoryTaskStore) GetTaskByID(id uuid.UUID) (*core.Task, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	task, exists := s.tasks[id.String()]
-	if !exists {
-		return nil, nil
-	}
-	return task, nil
-}
-
-func (s *InMemoryTaskStore) ListTasksByJobID(jobID uuid.UUID) ([]*core.Task, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	tasks := make([]*core.Task, 0)
-	for _, task := range s.tasks {
-		if task.JobID == jobID {
-			tasks = append(tasks, task)
+func (s *InMemoryJobStore) UpdateTask(task *core.Task) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	tasks := s.tasks[task.JobID.String()]
+	for i, t := range tasks {
+		if t.ID == task.ID {
+			tasks[i] = task
+			break
 		}
 	}
-	return tasks, nil
+	s.tasks[task.JobID.String()] = tasks
+	return nil
+}
+
+func (s *InMemoryJobStore) GetTaskByID(id uuid.UUID) (*core.Task, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, tasks := range s.tasks {
+		for _, task := range tasks {
+			if task.ID == id {
+				return task, nil
+			}
+		}
+	}
+	return nil, nil
+}
+
+func (s *InMemoryJobStore) ListTasksByJobID(jobID uuid.UUID) ([]*core.Task, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.tasks[jobID.String()], nil
 }

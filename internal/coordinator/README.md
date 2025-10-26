@@ -89,8 +89,6 @@ Submit a new MapReduce job.
   "job_id": "job-a1b2c3d4",
   "status": "SUBMITTED",
   "submitted_at": "2025-09-25T10:30:00Z",
-  "estimated_map_tasks": 10,
-  "estimated_reduce_tasks": 10,
   "links": {
     "self": "/api/jobs/job-a1b2c3d4"
   }

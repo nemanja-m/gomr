@@ -14,16 +14,14 @@ import (
 )
 
 type API struct {
-	jobStore  core.JobStore
-	taskStore core.TaskStore
-	logger    logging.Logger
+	jobOrchestrator core.JobOrchestrator
+	logger          logging.Logger
 }
 
-func NewAPI(jobStore core.JobStore, taskStore core.TaskStore, logger logging.Logger) *API {
+func NewAPI(jobOrchestrator core.JobOrchestrator, logger logging.Logger) *API {
 	return &API{
-		jobStore:  jobStore,
-		taskStore: taskStore,
-		logger:    logger,
+		jobOrchestrator: jobOrchestrator,
+		logger:          logger,
 	}
 }
 
@@ -48,20 +46,15 @@ func (a *API) submitJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	job := req.ToJob()
-	if err := a.jobStore.SaveJob(job); err != nil {
-		a.respondError(w, http.StatusInternalServerError, "failed to save job", err.Error())
+	if err := a.jobOrchestrator.SubmitJob(job); err != nil {
+		a.respondError(w, http.StatusInternalServerError, "failed to submit job", err.Error())
 		return
 	}
 
-	// Estimate tasks (simplified - in real implementation, would scan input)
-	estimatedReduceTasks := req.Config.NumReducers
-
 	createResp := SubmitJobResponse{
-		JobID:                job.ID.String(),
-		Status:               string(job.Status),
-		SubmittedAt:          job.SubmittedAt,
-		EstimatedMapTasks:    0, // Map tasks are determined dynamically based on input
-		EstimatedReduceTasks: estimatedReduceTasks,
+		JobID:       job.ID.String(),
+		Status:      string(job.Status),
+		SubmittedAt: job.SubmittedAt,
 		Links: Links{
 			Self: fmt.Sprintf("/api/jobs/%s", job.ID.String()),
 		},
@@ -84,7 +77,7 @@ func (a *API) getJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, err := a.jobStore.GetJobByID(jobID)
+	job, err := a.jobOrchestrator.GetJob(jobID)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to get job", err.Error())
 		return
@@ -122,7 +115,7 @@ func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	jobs, err := a.jobStore.ListJobs()
+	jobs, err := a.jobOrchestrator.ListJobs()
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to list jobs", err.Error())
 		return
@@ -179,7 +172,7 @@ func (a *API) getJobTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if job exists
-	job, err := a.jobStore.GetJobByID(jobID)
+	job, err := a.jobOrchestrator.GetJob(jobID)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to get job", err.Error())
 		return
@@ -190,7 +183,7 @@ func (a *API) getJobTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tasks, err := a.taskStore.ListTasksByJobID(jobID)
+	tasks, err := a.jobOrchestrator.GetTasks(jobID)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to list tasks", err.Error())
 		return
@@ -264,13 +257,8 @@ const (
 	idleTimeout  = 60 * time.Second
 )
 
-func NewServer(
-	addr string,
-	jobStore core.JobStore,
-	taskStore core.TaskStore,
-	logger logging.Logger,
-) *http.Server {
-	api := NewAPI(jobStore, taskStore, logger)
+func NewServer(addr string, jobOrchestrator core.JobOrchestrator, logger logging.Logger) *http.Server {
+	api := NewAPI(jobOrchestrator, logger)
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 

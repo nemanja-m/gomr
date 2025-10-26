@@ -56,12 +56,10 @@ type ResourceConfig struct {
 }
 
 type SubmitJobResponse struct {
-	JobID                string    `json:"job_id"`
-	Status               string    `json:"status"`
-	SubmittedAt          time.Time `json:"submitted_at"`
-	EstimatedMapTasks    int       `json:"estimated_map_tasks"`
-	EstimatedReduceTasks int       `json:"estimated_reduce_tasks"`
-	Links                Links     `json:"links"`
+	JobID       string    `json:"job_id"`
+	Status      string    `json:"status"`
+	SubmittedAt time.Time `json:"submitted_at"`
+	Links       Links     `json:"links"`
 }
 
 type Links struct {

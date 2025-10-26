@@ -8,13 +8,18 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nemanja-m/gomr/internal/coordinator/core"
 	"github.com/nemanja-m/gomr/internal/coordinator/storage"
 )
 
-func TestSubmitJob(t *testing.T) {
+func newTestAPI() *API {
 	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	jobOrchestrator := core.NewJobOrchestrator(jobStore)
+	return NewAPI(jobOrchestrator, newMockLogger())
+}
+
+func TestSubmitJob(t *testing.T) {
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -66,20 +71,10 @@ func TestSubmitJob(t *testing.T) {
 	if resp.Status != "PENDING" {
 		t.Errorf("Expected status PENDING, got %s", resp.Status)
 	}
-
-	if resp.EstimatedMapTasks != 0 {
-		t.Errorf("Expected 0 map tasks (determined dynamically), got %d", resp.EstimatedMapTasks)
-	}
-
-	if resp.EstimatedReduceTasks != 5 {
-		t.Errorf("Expected 5 reduce tasks, got %d", resp.EstimatedReduceTasks)
-	}
 }
 
 func TestSubmitJobValidation(t *testing.T) {
-	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -242,9 +237,7 @@ func TestSubmitJobValidation(t *testing.T) {
 }
 
 func TestGetJob(t *testing.T) {
-	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -307,9 +300,7 @@ func TestGetJob(t *testing.T) {
 }
 
 func TestGetJobNotFound(t *testing.T) {
-	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -324,9 +315,7 @@ func TestGetJobNotFound(t *testing.T) {
 }
 
 func TestListJobs(t *testing.T) {
-	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -388,9 +377,7 @@ func TestListJobs(t *testing.T) {
 }
 
 func TestListJobsPagination(t *testing.T) {
-	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -466,9 +453,7 @@ func TestListJobsPagination(t *testing.T) {
 }
 
 func TestGetJobTasks(t *testing.T) {
-	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -528,9 +513,7 @@ func TestGetJobTasks(t *testing.T) {
 }
 
 func TestMethodNotAllowed(t *testing.T) {
-	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -545,9 +528,7 @@ func TestMethodNotAllowed(t *testing.T) {
 }
 
 func TestListJobsReturnsEmptyArray(t *testing.T) {
-	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -584,9 +565,7 @@ func TestListJobsReturnsEmptyArray(t *testing.T) {
 }
 
 func TestGetJobTasksReturnsEmptyArray(t *testing.T) {
-	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -658,9 +637,7 @@ func TestGetJobTasksReturnsEmptyArray(t *testing.T) {
 }
 
 func TestGetJobErrorsReturnsEmptyArray(t *testing.T) {
-	jobStore := storage.NewInMemoryJobStore()
-	taskStore := storage.NewInMemoryTaskStore()
-	api := NewAPI(jobStore, taskStore, newMockLogger())
+	api := newTestAPI()
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
