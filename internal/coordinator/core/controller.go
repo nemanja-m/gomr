@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,11 +16,17 @@ type JobController interface {
 	GetJob(id uuid.UUID) (*Job, error)
 	GetJobs(filter JobFilter) ([]*Job, int, error)
 	GetTasks(jobID uuid.UUID) ([]*Task, error)
+
+	NextTask() (*Task, error)
 }
 
 type jobController struct {
-	jobStore JobStore
-	logger   logging.Logger
+	jobStore   JobStore
+	taskQueues map[uuid.UUID]TaskPriorityQueue
+
+	mu sync.RWMutex
+
+	logger logging.Logger
 }
 
 func NewJobController(jobStore JobStore, logger logging.Logger) JobController {
@@ -101,6 +108,28 @@ func (c *jobController) SubmitJob(job *Job) (err error) {
 		return err
 	}
 
+	// Push tasks to the in-memory priority queue.
+	// Map tasks have higher priority than reduce tasks.
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	taskQueue, exists := c.taskQueues[job.ID]
+	if !exists {
+		taskQueue = NewTaskPriorityQueue()
+		c.taskQueues[job.ID] = taskQueue
+	}
+	for _, task := range mapTasks {
+		err = taskQueue.Push(task, TaskPriorityHigh)
+		if err != nil {
+			return err
+		}
+	}
+	for _, task := range reduceTasks {
+		err = taskQueue.Push(task, TaskPriorityLow)
+		if err != nil {
+			return err
+		}
+	}
+
 	c.logger.Info(
 		"Job submitted",
 		"job_id", job.ID.String(),
@@ -122,6 +151,32 @@ func (c *jobController) GetJobs(filter JobFilter) ([]*Job, int, error) {
 
 func (c *jobController) GetTasks(jobID uuid.UUID) ([]*Task, error) {
 	return c.jobStore.GetTasksByJobID(jobID)
+}
+
+func (c *jobController) NextTask() (*Task, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, taskQueue := range c.taskQueues {
+		if taskQueue.Len() > 0 {
+			// All map tasks must be completed before running reduce tasks.
+			top, err := taskQueue.Top()
+			if err != nil {
+				return nil, err
+			}
+			if top.Type == TaskTypeReduce {
+				completed, err := c.jobStore.IsMapPhaseCompleted(top.JobID)
+				if err != nil {
+					return nil, err
+				}
+				if !completed {
+					continue
+				}
+			}
+			return taskQueue.Pop()
+		}
+	}
+	return nil, nil
 }
 
 func ptrTimeNow() *time.Time {

@@ -8,26 +8,26 @@ import (
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
 )
 
+// InMemoryJobStore is an in-memory implementation of JobStore for testing and development purposes.
 type InMemoryJobStore struct {
 	mu    sync.RWMutex
-	jobs  map[string]*core.Job
-	tasks map[string][]*core.Task // jobID -> tasks
+	jobs  map[uuid.UUID]*core.Job
+	tasks map[uuid.UUID][]*core.Task
 }
 
 func NewInMemoryJobStore() *InMemoryJobStore {
 	return &InMemoryJobStore{
-		jobs:  make(map[string]*core.Job),
-		tasks: make(map[string][]*core.Task),
+		jobs:  make(map[uuid.UUID]*core.Job),
+		tasks: make(map[uuid.UUID][]*core.Task),
 	}
 }
 
 func (s *InMemoryJobStore) SaveJob(job *core.Job, tasks ...*core.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	jobID := job.ID.String()
-	s.jobs[jobID] = job
+	s.jobs[job.ID] = job
 	if len(tasks) > 0 {
-		s.tasks[jobID] = append(s.tasks[jobID], tasks...)
+		s.tasks[job.ID] = append(s.tasks[job.ID], tasks...)
 	}
 	return nil
 }
@@ -35,10 +35,9 @@ func (s *InMemoryJobStore) SaveJob(job *core.Job, tasks ...*core.Task) error {
 func (s *InMemoryJobStore) UpdateJob(job *core.Job, tasks ...*core.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	jobID := job.ID.String()
-	s.jobs[jobID] = job
+	s.jobs[job.ID] = job
 	if len(tasks) > 0 {
-		s.tasks[jobID] = append(s.tasks[jobID], tasks...)
+		s.tasks[job.ID] = append(s.tasks[job.ID], tasks...)
 	}
 	return nil
 }
@@ -46,7 +45,7 @@ func (s *InMemoryJobStore) UpdateJob(job *core.Job, tasks ...*core.Task) error {
 func (s *InMemoryJobStore) GetJobByID(id uuid.UUID) (*core.Job, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	job, exists := s.jobs[id.String()]
+	job, exists := s.jobs[id]
 	if !exists {
 		return nil, nil
 	}
@@ -76,14 +75,14 @@ func (s *InMemoryJobStore) GetJobs(filter core.JobFilter) ([]*core.Job, int, err
 func (s *InMemoryJobStore) UpdateTask(task *core.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	tasks := s.tasks[task.JobID.String()]
+	tasks := s.tasks[task.JobID]
 	for i, t := range tasks {
 		if t.ID == task.ID {
 			tasks[i] = task
 			break
 		}
 	}
-	s.tasks[task.JobID.String()] = tasks
+	s.tasks[task.JobID] = tasks
 	return nil
 }
 
@@ -103,5 +102,17 @@ func (s *InMemoryJobStore) GetTaskByID(id uuid.UUID) (*core.Task, error) {
 func (s *InMemoryJobStore) GetTasksByJobID(jobID uuid.UUID) ([]*core.Task, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.tasks[jobID.String()], nil
+	return s.tasks[jobID], nil
+}
+
+func (s *InMemoryJobStore) IsMapPhaseCompleted(jobID uuid.UUID) (bool, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	tasks := s.tasks[jobID]
+	for _, task := range tasks {
+		if task.Type == core.TaskTypeMap && task.Status != core.TaskStatusCompleted {
+			return false, nil
+		}
+	}
+	return true, nil
 }

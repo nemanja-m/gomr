@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
 )
 
@@ -75,6 +76,10 @@ func (m *mockJobController) GetTasks(jobID uuid.UUID) ([]*core.Task, error) {
 		return []*core.Task{}, nil
 	}
 	return tasks, nil
+}
+
+func (m *mockJobController) NextTask() (*core.Task, error) {
+	return nil, nil
 }
 
 func newTestAPI() *API {

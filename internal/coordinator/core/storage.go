@@ -11,4 +11,6 @@ type JobStore interface {
 	UpdateTask(task *Task) error
 	GetTaskByID(id uuid.UUID) (*Task, error)
 	GetTasksByJobID(jobID uuid.UUID) ([]*Task, error)
+
+	IsMapPhaseCompleted(jobID uuid.UUID) (bool, error)
 }
