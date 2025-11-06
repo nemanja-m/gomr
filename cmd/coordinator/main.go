@@ -8,26 +8,42 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nemanja-m/gomr/internal/coordinator/api/grpc"
 	"github.com/nemanja-m/gomr/internal/coordinator/api/rest"
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
 	"github.com/nemanja-m/gomr/internal/coordinator/storage"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 )
 
+var (
+	restServerAddr = ":8080"
+	grpcServerAddr = ":9090"
+)
+
 func main() {
-	addr := ":8080"
-	if envAddr := os.Getenv("COORDINATOR_ADDR"); envAddr != "" {
-		addr = envAddr
+	if envAddr := os.Getenv("COORDINATOR_REST_ADDR"); envAddr != "" {
+		restServerAddr = envAddr
+	}
+	if envAddr := os.Getenv("COORDINATOR_GRPC_ADDR"); envAddr != "" {
+		grpcServerAddr = envAddr
 	}
 
 	logger := logging.NewSlogLogger(slog.LevelInfo)
 	orchestrator := core.NewJobController(storage.NewInMemoryJobStore(), logger)
-	server := rest.NewServer(addr, orchestrator, logger)
+	restServer := rest.NewServer(restServerAddr, orchestrator, logger)
+	grpcServer := grpc.NewServer(grpcServerAddr, true, logger)
 
 	go func() {
-		logger.Info("Starting coordinator API server", "address", addr)
-		if err := server.ListenAndServe(); err != nil && err.Error() != "http: Server closed" {
+		logger.Info("Starting coordinator API server", "address", restServerAddr)
+		if err := restServer.ListenAndServe(); err != nil && err.Error() != "http: Server closed" {
 			logger.Fatal("Server error", "error", err)
+		}
+	}()
+
+	go func() {
+		logger.Info("Starting coordinator gRPC server", "address", grpcServerAddr)
+		if err := grpcServer.Start(); err != nil {
+			logger.Fatal("gRPC Server error", "error", err)
 		}
 	}()
 
@@ -41,9 +57,11 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	if err := server.Shutdown(ctx); err != nil {
+	if err := restServer.Shutdown(ctx); err != nil {
 		logger.Fatal("Server forced to shutdown", "error", err)
 	}
+
+	grpcServer.Stop()
 
 	logger.Info("Server stopped")
 }

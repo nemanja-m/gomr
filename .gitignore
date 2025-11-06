@@ -27,5 +27,8 @@ go.work.sum
 # Binary output directory
 bin/
 
+# Generated protobuf/gRPC files
+*.pb.go
+
 # Output data
 data/output/
