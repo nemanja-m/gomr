@@ -116,3 +116,42 @@ func (s *InMemoryJobStore) IsMapPhaseCompleted(jobID uuid.UUID) (bool, error) {
 	}
 	return true, nil
 }
+
+// InMemoryWorkerStore is an in-memory implementation of WorkerStore for testing and development purposes.
+type InMemoryWorkerStore struct {
+	mu      sync.RWMutex
+	workers map[uuid.UUID]*core.Worker
+}
+
+func NewInMemoryWorkerStore() *InMemoryWorkerStore {
+	return &InMemoryWorkerStore{
+		workers: make(map[uuid.UUID]*core.Worker),
+	}
+}
+
+func (s *InMemoryWorkerStore) AddWorker(worker *core.Worker) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.workers[worker.ID] = worker
+	return nil
+}
+
+func (s *InMemoryWorkerStore) GetWorkerByID(id uuid.UUID) (*core.Worker, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	worker, exists := s.workers[id]
+	if !exists {
+		return nil, nil
+	}
+	return worker, nil
+}
+
+func (s *InMemoryWorkerStore) GetAllWorkers() ([]*core.Worker, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var allWorkers []*core.Worker
+	for _, worker := range s.workers {
+		allWorkers = append(allWorkers, worker)
+	}
+	return allWorkers, nil
+}

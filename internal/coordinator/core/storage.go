@@ -14,3 +14,9 @@ type JobStore interface {
 
 	IsMapPhaseCompleted(jobID uuid.UUID) (bool, error)
 }
+
+type WorkerStore interface {
+	AddWorker(worker *Worker) error
+	GetWorkerByID(id uuid.UUID) (*Worker, error)
+	GetAllWorkers() ([]*Worker, error)
+}

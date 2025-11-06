@@ -16,7 +16,7 @@ message RegisterWorkerRequest {
     string address = 2;
 
     int32 available_cpu_cores = 3;
-    int32 available_memory_mb = 4;
+    int32 available_memory_bytes = 4;
 }
 
 message RegisterWorkerResponse {
@@ -28,6 +28,7 @@ message RegisterWorkerResponse {
 
 enum RegistrationStatus {
     SUCCESS = 0;
-    ALREADY_REGISTERED = 1;
+    BAD_REQUEST = 1;
     REJECTED = 2;
+    FAILED = 3;
 }

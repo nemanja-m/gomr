@@ -135,3 +135,14 @@ type JobFilter struct {
 	Limit  int
 	Offset int
 }
+
+type Worker struct {
+	ID           uuid.UUID
+	Address      string
+	Capabilities WorkerCapabilities
+}
+
+type WorkerCapabilities struct {
+	AvailableCpuCores    float64
+	AvailableMemoryBytes uint64
+}

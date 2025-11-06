@@ -11,13 +11,15 @@ import (
 	"github.com/nemanja-m/gomr/internal/coordinator/api/grpc"
 	"github.com/nemanja-m/gomr/internal/coordinator/api/rest"
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
+	"github.com/nemanja-m/gomr/internal/coordinator/service"
 	"github.com/nemanja-m/gomr/internal/coordinator/storage"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 )
 
 var (
-	restServerAddr = ":8080"
-	grpcServerAddr = ":9090"
+	restServerAddr       = ":8080"
+	grpcServerAddr       = ":9090"
+	enableGRPCReflection = true
 )
 
 func main() {
@@ -27,11 +29,16 @@ func main() {
 	if envAddr := os.Getenv("COORDINATOR_GRPC_ADDR"); envAddr != "" {
 		grpcServerAddr = envAddr
 	}
+	if envReflection := os.Getenv("COORDINATOR_ENABLE_GRPC_REFLECTION"); envReflection == "false" {
+		enableGRPCReflection = false
+	}
 
 	logger := logging.NewSlogLogger(slog.LevelInfo)
 	orchestrator := core.NewJobController(storage.NewInMemoryJobStore(), logger)
 	restServer := rest.NewServer(restServerAddr, orchestrator, logger)
-	grpcServer := grpc.NewServer(grpcServerAddr, true, logger)
+
+	workerSvc := service.NewWorkerService(storage.NewInMemoryWorkerStore(), logger)
+	grpcServer := grpc.NewServer(grpcServerAddr, enableGRPCReflection, workerSvc, logger)
 
 	go func() {
 		logger.Info("Starting coordinator API server", "address", restServerAddr)
