@@ -1,4 +1,4 @@
-package core
+package service
 
 import (
 	"os"
@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/nemanja-m/gomr/internal/coordinator/core"
 )
 
 // mockLogger is a no-op logger for testing
@@ -22,18 +24,18 @@ func (m *mockLogger) Fatal(msg string, args ...any) {}
 // mockJobStore is an in-memory implementation of JobStore for testing
 type mockJobStore struct {
 	mu    sync.RWMutex
-	jobs  map[uuid.UUID]*Job
-	tasks map[uuid.UUID][]*Task
+	jobs  map[uuid.UUID]*core.Job
+	tasks map[uuid.UUID][]*core.Task
 }
 
 func newMockJobStore() *mockJobStore {
 	return &mockJobStore{
-		jobs:  make(map[uuid.UUID]*Job),
-		tasks: make(map[uuid.UUID][]*Task),
+		jobs:  make(map[uuid.UUID]*core.Job),
+		tasks: make(map[uuid.UUID][]*core.Task),
 	}
 }
 
-func (s *mockJobStore) SaveJob(job *Job, tasks ...*Task) error {
+func (s *mockJobStore) SaveJob(job *core.Job, tasks ...*core.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.jobs[job.ID] = job
@@ -43,7 +45,7 @@ func (s *mockJobStore) SaveJob(job *Job, tasks ...*Task) error {
 	return nil
 }
 
-func (s *mockJobStore) UpdateJob(job *Job, tasks ...*Task) error {
+func (s *mockJobStore) UpdateJob(job *core.Job, tasks ...*core.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.jobs[job.ID] = job
@@ -53,7 +55,7 @@ func (s *mockJobStore) UpdateJob(job *Job, tasks ...*Task) error {
 	return nil
 }
 
-func (s *mockJobStore) GetJobByID(id uuid.UUID) (*Job, error) {
+func (s *mockJobStore) GetJobByID(id uuid.UUID) (*core.Job, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	job, exists := s.jobs[id]
@@ -63,11 +65,11 @@ func (s *mockJobStore) GetJobByID(id uuid.UUID) (*Job, error) {
 	return job, nil
 }
 
-func (s *mockJobStore) GetJobs(filter JobFilter) ([]*Job, int, error) {
+func (s *mockJobStore) GetJobs(filter core.JobFilter) ([]*core.Job, int, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var filteredJobs []*Job
+	var filteredJobs []*core.Job
 	for _, job := range s.jobs {
 		if filter.Status != nil && job.Status != *filter.Status {
 			continue
@@ -83,7 +85,7 @@ func (s *mockJobStore) GetJobs(filter JobFilter) ([]*Job, int, error) {
 	return pagedJobs, total, nil
 }
 
-func (s *mockJobStore) UpdateTask(task *Task) error {
+func (s *mockJobStore) UpdateTask(task *core.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	tasks := s.tasks[task.JobID]
@@ -97,7 +99,7 @@ func (s *mockJobStore) UpdateTask(task *Task) error {
 	return nil
 }
 
-func (s *mockJobStore) GetTaskByID(id uuid.UUID) (*Task, error) {
+func (s *mockJobStore) GetTaskByID(id uuid.UUID) (*core.Task, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for _, tasks := range s.tasks {
@@ -110,7 +112,7 @@ func (s *mockJobStore) GetTaskByID(id uuid.UUID) (*Task, error) {
 	return nil, nil
 }
 
-func (s *mockJobStore) GetTasksByJobID(jobID uuid.UUID) ([]*Task, error) {
+func (s *mockJobStore) GetTasksByJobID(jobID uuid.UUID) ([]*core.Task, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.tasks[jobID], nil
@@ -121,7 +123,7 @@ func (s *mockJobStore) IsMapPhaseCompleted(jobID uuid.UUID) (bool, error) {
 	defer s.mu.RUnlock()
 	tasks := s.tasks[jobID]
 	for _, task := range tasks {
-		if task.Type == TaskTypeMap && task.Status != TaskStatusCompleted {
+		if task.Type == core.TaskTypeMap && task.Status != core.TaskStatusCompleted {
 			return false, nil
 		}
 	}
@@ -129,21 +131,21 @@ func (s *mockJobStore) IsMapPhaseCompleted(jobID uuid.UUID) (bool, error) {
 }
 
 // createTestJob creates a test job with the given input paths
-func createTestJob(inputPaths []string, numReducers int) *Job {
-	return &Job{
+func createTestJob(inputPaths []string, numReducers int) *core.Job {
+	return &core.Job{
 		ID:     uuid.New(),
 		Name:   "test-job",
-		Status: JobStatusPending,
-		Input: InputConfig{
+		Status: core.JobStatusPending,
+		Input: core.InputConfig{
 			Type:   "local",
 			Format: "text",
 			Paths:  inputPaths,
 		},
-		Output: OutputConfig{
+		Output: core.OutputConfig{
 			Type: "local",
 			Path: "/tmp/test-output",
 		},
-		Config: JobConfig{
+		Config: core.JobConfig{
 			NumReducers: numReducers,
 		},
 		SubmittedAt: time.Now().UTC(),
@@ -169,34 +171,34 @@ func createTempTestFiles(t *testing.T, numFiles int) ([]string, string) {
 	return filePaths, tempDir
 }
 
-func TestNewJobController(t *testing.T) {
+func TestNewJobService(t *testing.T) {
 	store := newMockJobStore()
 	logger := &mockLogger{}
 
-	controller := NewJobController(store, logger)
+	service := NewJobService(store, logger)
 
-	if controller == nil {
-		t.Fatal("NewJobController returned nil")
+	if service == nil {
+		t.Fatal("NewJobService returned nil")
 	}
 }
 
-func TestJobController_SubmitJob(t *testing.T) {
+func TestJobService_SubmitJob(t *testing.T) {
 	t.Run("submit job with valid local input", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		// Create test files
 		filePaths, _ := createTempTestFiles(t, 3)
 		job := createTestJob(filePaths, 2)
 
-		err := controller.SubmitJob(job)
+		err := service.SubmitJob(job)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		// Verify job status was updated
-		if job.Status != JobStatusRunning {
+		if job.Status != core.JobStatusRunning {
 			t.Errorf("expected job status RUNNING, got %s", job.Status)
 		}
 
@@ -221,7 +223,7 @@ func TestJobController_SubmitJob(t *testing.T) {
 		if savedJob == nil {
 			t.Fatal("job not found in store")
 		}
-		if savedJob.Status != JobStatusRunning {
+		if savedJob.Status != core.JobStatusRunning {
 			t.Errorf("expected saved job status RUNNING, got %s", savedJob.Status)
 		}
 
@@ -238,9 +240,9 @@ func TestJobController_SubmitJob(t *testing.T) {
 		var mapTasks, reduceTasks int
 		for _, task := range tasks {
 			switch task.Type {
-			case TaskTypeMap:
+			case core.TaskTypeMap:
 				mapTasks++
-			case TaskTypeReduce:
+			case core.TaskTypeReduce:
 				reduceTasks++
 			}
 		}
@@ -255,25 +257,25 @@ func TestJobController_SubmitJob(t *testing.T) {
 	t.Run("submit job with unsupported input type", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
-		job := &Job{
+		job := &core.Job{
 			ID:   uuid.New(),
 			Name: "test-job",
-			Input: InputConfig{
+			Input: core.InputConfig{
 				Type:  "http",
 				Paths: []string{"http://example.com/path"},
 			},
-			Output: OutputConfig{
+			Output: core.OutputConfig{
 				Type: "local",
 				Path: "/tmp/output",
 			},
-			Config: JobConfig{
+			Config: core.JobConfig{
 				NumReducers: 2,
 			},
 		}
 
-		err := controller.SubmitJob(job)
+		err := service.SubmitJob(job)
 		if err == nil {
 			t.Error("expected error for unsupported input type")
 		}
@@ -285,11 +287,11 @@ func TestJobController_SubmitJob(t *testing.T) {
 	t.Run("submit job with no input files", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		job := createTestJob([]string{"/nonexistent/*.txt"}, 2)
 
-		err := controller.SubmitJob(job)
+		err := service.SubmitJob(job)
 		if err == nil {
 			t.Error("expected error for no input files")
 		}
@@ -298,14 +300,14 @@ func TestJobController_SubmitJob(t *testing.T) {
 	t.Run("submit job with glob pattern", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		// Create test files
 		_, tempDir := createTempTestFiles(t, 3)
 		pattern := filepath.Join(tempDir, "*.txt")
 		job := createTestJob([]string{pattern}, 2)
 
-		err := controller.SubmitJob(job)
+		err := service.SubmitJob(job)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -323,12 +325,12 @@ func TestJobController_SubmitJob(t *testing.T) {
 	t.Run("map tasks have correct input configuration", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		filePaths, _ := createTempTestFiles(t, 2)
 		job := createTestJob(filePaths, 1)
 
-		err := controller.SubmitJob(job)
+		err := service.SubmitJob(job)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -337,11 +339,11 @@ func TestJobController_SubmitJob(t *testing.T) {
 
 		// Check each map task has exactly one input file
 		for _, task := range tasks {
-			if task.Type == TaskTypeMap {
+			if task.Type == core.TaskTypeMap {
 				if len(task.Input.Paths) != 1 {
 					t.Errorf("expected map task to have 1 input file, got %d", len(task.Input.Paths))
 				}
-				if task.Status != TaskStatusPending {
+				if task.Status != core.TaskStatusPending {
 					t.Errorf("expected map task status PENDING, got %s", task.Status)
 				}
 			}
@@ -351,12 +353,12 @@ func TestJobController_SubmitJob(t *testing.T) {
 	t.Run("reduce tasks have correct shuffle pattern", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		filePaths, _ := createTempTestFiles(t, 2)
 		job := createTestJob(filePaths, 2)
 
-		err := controller.SubmitJob(job)
+		err := service.SubmitJob(job)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -365,7 +367,7 @@ func TestJobController_SubmitJob(t *testing.T) {
 
 		// Check reduce tasks have shuffle pattern
 		for _, task := range tasks {
-			if task.Type == TaskTypeReduce {
+			if task.Type == core.TaskTypeReduce {
 				if len(task.Input.Paths) != 1 {
 					t.Errorf("expected reduce task to have 1 input path pattern, got %d", len(task.Input.Paths))
 				}
@@ -373,7 +375,7 @@ func TestJobController_SubmitJob(t *testing.T) {
 				if !filepath.IsAbs(task.Input.Paths[0]) {
 					t.Error("expected reduce task input to be absolute path")
 				}
-				if task.Status != TaskStatusPending {
+				if task.Status != core.TaskStatusPending {
 					t.Errorf("expected reduce task status PENDING, got %s", task.Status)
 				}
 			}
@@ -381,17 +383,17 @@ func TestJobController_SubmitJob(t *testing.T) {
 	})
 }
 
-func TestJobController_GetJob(t *testing.T) {
+func TestJobService_GetJob(t *testing.T) {
 	t.Run("get existing job", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		// Create and save a job
 		job := createTestJob([]string{"/tmp/test.txt"}, 1)
 		_ = store.SaveJob(job)
 
-		retrievedJob, err := controller.GetJob(job.ID)
+		retrievedJob, err := service.GetJob(job.ID)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -406,10 +408,10 @@ func TestJobController_GetJob(t *testing.T) {
 	t.Run("get non-existent job", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		nonExistentID := uuid.New()
-		job, err := controller.GetJob(nonExistentID)
+		job, err := service.GetJob(nonExistentID)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -419,11 +421,11 @@ func TestJobController_GetJob(t *testing.T) {
 	})
 }
 
-func TestJobController_GetJobs(t *testing.T) {
+func TestJobService_GetJobs(t *testing.T) {
 	t.Run("get all jobs without filter", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		// Create and save multiple jobs
 		job1 := createTestJob([]string{"/tmp/test1.txt"}, 1)
@@ -431,7 +433,7 @@ func TestJobController_GetJobs(t *testing.T) {
 		_ = store.SaveJob(job1)
 		_ = store.SaveJob(job2)
 
-		jobs, total, err := controller.GetJobs(JobFilter{
+		jobs, total, err := service.GetJobs(core.JobFilter{
 			Limit: 10,
 		})
 		if err != nil {
@@ -448,22 +450,22 @@ func TestJobController_GetJobs(t *testing.T) {
 	t.Run("get jobs with status filter", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		// Create jobs with different statuses
 		job1 := createTestJob([]string{"/tmp/test1.txt"}, 1)
-		job1.Status = JobStatusRunning
+		job1.Status = core.JobStatusRunning
 		job2 := createTestJob([]string{"/tmp/test2.txt"}, 1)
-		job2.Status = JobStatusCompleted
+		job2.Status = core.JobStatusCompleted
 		job3 := createTestJob([]string{"/tmp/test3.txt"}, 1)
-		job3.Status = JobStatusRunning
+		job3.Status = core.JobStatusRunning
 
 		_ = store.SaveJob(job1)
 		_ = store.SaveJob(job2)
 		_ = store.SaveJob(job3)
 
-		runningStatus := JobStatusRunning
-		jobs, total, err := controller.GetJobs(JobFilter{
+		runningStatus := core.JobStatusRunning
+		jobs, total, err := service.GetJobs(core.JobFilter{
 			Status: &runningStatus,
 			Limit:  10,
 		})
@@ -477,7 +479,7 @@ func TestJobController_GetJobs(t *testing.T) {
 			t.Errorf("expected 2 running jobs, got %d", len(jobs))
 		}
 		for _, job := range jobs {
-			if job.Status != JobStatusRunning {
+			if job.Status != core.JobStatusRunning {
 				t.Errorf("expected RUNNING status, got %s", job.Status)
 			}
 		}
@@ -486,7 +488,7 @@ func TestJobController_GetJobs(t *testing.T) {
 	t.Run("get jobs with pagination", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		// Create multiple jobs
 		for range 5 {
@@ -494,7 +496,7 @@ func TestJobController_GetJobs(t *testing.T) {
 			_ = store.SaveJob(job)
 		}
 
-		jobs, total, err := controller.GetJobs(JobFilter{
+		jobs, total, err := service.GetJobs(core.JobFilter{
 			Offset: 1,
 			Limit:  2,
 		})
@@ -510,21 +512,21 @@ func TestJobController_GetJobs(t *testing.T) {
 	})
 }
 
-func TestJobController_GetTasks(t *testing.T) {
+func TestJobService_GetTasks(t *testing.T) {
 	t.Run("get tasks for existing job", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		filePaths, _ := createTempTestFiles(t, 2)
 		job := createTestJob(filePaths, 1)
 
-		err := controller.SubmitJob(job)
+		err := service.SubmitJob(job)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
-		tasks, err := controller.GetTasks(job.ID)
+		tasks, err := service.GetTasks(job.ID)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -543,10 +545,10 @@ func TestJobController_GetTasks(t *testing.T) {
 	t.Run("get tasks for non-existent job", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		nonExistentID := uuid.New()
-		tasks, err := controller.GetTasks(nonExistentID)
+		tasks, err := service.GetTasks(nonExistentID)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -556,29 +558,29 @@ func TestJobController_GetTasks(t *testing.T) {
 	})
 }
 
-func TestJobController_NextTask(t *testing.T) {
+func TestJobService_NextTask(t *testing.T) {
 	t.Run("next task returns map task first", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		filePaths, _ := createTempTestFiles(t, 2)
 		job := createTestJob(filePaths, 1)
 
-		err := controller.SubmitJob(job)
+		err := service.SubmitJob(job)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		// Get next task - should be a map task
-		task, err := controller.NextTask()
+		task, err := service.NextTask()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if task == nil {
 			t.Fatal("expected task, got nil")
 		}
-		if task.Type != TaskTypeMap {
+		if task.Type != core.TaskTypeMap {
 			t.Errorf("expected map task, got %s", task.Type)
 		}
 	})
@@ -586,9 +588,9 @@ func TestJobController_NextTask(t *testing.T) {
 	t.Run("next task returns nil when queue is empty", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
-		task, err := controller.NextTask()
+		task, err := service.NextTask()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -600,27 +602,27 @@ func TestJobController_NextTask(t *testing.T) {
 	t.Run("reduce tasks not returned until map phase complete", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		filePaths, _ := createTempTestFiles(t, 2)
 		job := createTestJob(filePaths, 1)
 
-		err := controller.SubmitJob(job)
+		err := service.SubmitJob(job)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		// Pop all map tasks
-		task1, _ := controller.NextTask()
-		task2, _ := controller.NextTask()
+		task1, _ := service.NextTask()
+		task2, _ := service.NextTask()
 
 		// Both should be map tasks
-		if task1.Type != TaskTypeMap || task2.Type != TaskTypeMap {
+		if task1.Type != core.TaskTypeMap || task2.Type != core.TaskTypeMap {
 			t.Error("expected both tasks to be map tasks")
 		}
 
 		// Next task should be nil (reduce task blocked until map phase completes)
-		task3, err := controller.NextTask()
+		task3, err := service.NextTask()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -629,20 +631,20 @@ func TestJobController_NextTask(t *testing.T) {
 		}
 
 		// Mark map tasks as completed
-		task1.Status = TaskStatusCompleted
-		task2.Status = TaskStatusCompleted
+		task1.Status = core.TaskStatusCompleted
+		task2.Status = core.TaskStatusCompleted
 		_ = store.UpdateTask(task1)
 		_ = store.UpdateTask(task2)
 
 		// Now reduce task should be available
-		task4, err := controller.NextTask()
+		task4, err := service.NextTask()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if task4 == nil {
 			t.Fatal("expected reduce task after map phase complete")
 		}
-		if task4.Type != TaskTypeReduce {
+		if task4.Type != core.TaskTypeReduce {
 			t.Errorf("expected reduce task, got %s", task4.Type)
 		}
 	})
@@ -650,27 +652,27 @@ func TestJobController_NextTask(t *testing.T) {
 	t.Run("multiple jobs - returns highest priority task", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		// Submit first job
 		filePaths1, _ := createTempTestFiles(t, 1)
 		job1 := createTestJob(filePaths1, 1)
-		_ = controller.SubmitJob(job1)
+		_ = service.SubmitJob(job1)
 
 		// Submit second job
 		filePaths2, _ := createTempTestFiles(t, 1)
 		job2 := createTestJob(filePaths2, 1)
-		_ = controller.SubmitJob(job2)
+		_ = service.SubmitJob(job2)
 
 		// Should get a map task (high priority)
-		task, err := controller.NextTask()
+		task, err := service.NextTask()
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		if task == nil {
 			t.Fatal("expected task, got nil")
 		}
-		if task.Type != TaskTypeMap {
+		if task.Type != core.TaskTypeMap {
 			t.Errorf("expected map task, got %s", task.Type)
 		}
 	})
@@ -678,27 +680,27 @@ func TestJobController_NextTask(t *testing.T) {
 	t.Run("FIFO order for same priority tasks", func(t *testing.T) {
 		store := newMockJobStore()
 		logger := &mockLogger{}
-		controller := NewJobController(store, logger)
+		service := NewJobService(store, logger)
 
 		filePaths, _ := createTempTestFiles(t, 3)
 		job := createTestJob(filePaths, 1)
 
-		err := controller.SubmitJob(job)
+		err := service.SubmitJob(job)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 
 		// Get all map tasks - should be in FIFO order
-		task1, _ := controller.NextTask()
-		task2, _ := controller.NextTask()
-		task3, _ := controller.NextTask()
+		task1, _ := service.NextTask()
+		task2, _ := service.NextTask()
+		task3, _ := service.NextTask()
 
 		if task1 == nil || task2 == nil || task3 == nil {
 			t.Fatal("expected 3 map tasks")
 		}
 
 		// All should be map tasks
-		if task1.Type != TaskTypeMap || task2.Type != TaskTypeMap || task3.Type != TaskTypeMap {
+		if task1.Type != core.TaskTypeMap || task2.Type != core.TaskTypeMap || task3.Type != core.TaskTypeMap {
 			t.Error("expected all tasks to be map tasks")
 		}
 

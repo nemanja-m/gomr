@@ -5,16 +5,12 @@ import (
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 )
 
-type WorkerService interface {
-	RegisterWorker(worker *core.Worker) error
-}
-
 type workerService struct {
 	workerStore core.WorkerStore
 	logger      logging.Logger
 }
 
-func NewWorkerService(workerStore core.WorkerStore, logger logging.Logger) WorkerService {
+func NewWorkerService(workerStore core.WorkerStore, logger logging.Logger) core.WorkerService {
 	return &workerService{
 		workerStore: workerStore,
 		logger:      logger,

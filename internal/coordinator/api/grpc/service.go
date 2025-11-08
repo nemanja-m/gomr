@@ -6,7 +6,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
-	"github.com/nemanja-m/gomr/internal/coordinator/service"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 	"github.com/nemanja-m/gomr/internal/shared/proto"
 )
@@ -18,12 +17,12 @@ const (
 type CoordinatorService struct {
 	proto.UnimplementedCoordinatorServiceServer
 
-	workerService service.WorkerService
+	workerService core.WorkerService
 
 	logger logging.Logger
 }
 
-func NewCoordinatorService(workerService service.WorkerService, logger logging.Logger) *CoordinatorService {
+func NewCoordinatorService(workerService core.WorkerService, logger logging.Logger) *CoordinatorService {
 	return &CoordinatorService{
 		workerService: workerService,
 		logger:        logger,

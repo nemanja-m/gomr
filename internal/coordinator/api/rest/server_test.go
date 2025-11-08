@@ -15,21 +15,21 @@ import (
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
 )
 
-// mockJobController is a simple mock that stores jobs in memory without side effects
-type mockJobController struct {
+// mockJobService is a simple mock that stores jobs in memory without side effects
+type mockJobService struct {
 	mu    sync.RWMutex
 	jobs  map[uuid.UUID]*core.Job
 	tasks map[uuid.UUID][]*core.Task
 }
 
-func newMockJobController() core.JobController {
-	return &mockJobController{
+func newMockJobService() core.JobService {
+	return &mockJobService{
 		jobs:  make(map[uuid.UUID]*core.Job),
 		tasks: make(map[uuid.UUID][]*core.Task),
 	}
 }
 
-func (m *mockJobController) SubmitJob(job *core.Job) error {
+func (m *mockJobService) SubmitJob(job *core.Job) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	job.Status = core.JobStatusPending
@@ -38,7 +38,7 @@ func (m *mockJobController) SubmitJob(job *core.Job) error {
 	return nil
 }
 
-func (m *mockJobController) GetJob(id uuid.UUID) (*core.Job, error) {
+func (m *mockJobService) GetJob(id uuid.UUID) (*core.Job, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	job, exists := m.jobs[id]
@@ -48,7 +48,7 @@ func (m *mockJobController) GetJob(id uuid.UUID) (*core.Job, error) {
 	return job, nil
 }
 
-func (m *mockJobController) GetJobs(filter core.JobFilter) ([]*core.Job, int, error) {
+func (m *mockJobService) GetJobs(filter core.JobFilter) ([]*core.Job, int, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -68,7 +68,7 @@ func (m *mockJobController) GetJobs(filter core.JobFilter) ([]*core.Job, int, er
 	return pagedJobs, total, nil
 }
 
-func (m *mockJobController) GetTasks(jobID uuid.UUID) ([]*core.Task, error) {
+func (m *mockJobService) GetTasks(jobID uuid.UUID) ([]*core.Task, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	tasks, exists := m.tasks[jobID]
@@ -78,14 +78,14 @@ func (m *mockJobController) GetTasks(jobID uuid.UUID) ([]*core.Task, error) {
 	return tasks, nil
 }
 
-func (m *mockJobController) NextTask() (*core.Task, error) {
+func (m *mockJobService) NextTask() (*core.Task, error) {
 	return nil, nil
 }
 
 func newTestAPI() *API {
 	logger := newMockLogger()
-	jobOrchestrator := newMockJobController()
-	return NewAPI(jobOrchestrator, logger)
+	jobService := newMockJobService()
+	return NewAPI(jobService, logger)
 }
 
 func TestSubmitJob(t *testing.T) {
@@ -779,8 +779,8 @@ func TestGetJobErrorsReturnsEmptyArray(t *testing.T) {
 }
 
 func TestListJobsWithStatusFilter(t *testing.T) {
-	// Use the mock controller directly to set job statuses
-	mockCtrl := &mockJobController{
+	// Use the mock service directly to set job statuses
+	mockSvc := &mockJobService{
 		jobs:  make(map[uuid.UUID]*core.Job),
 		tasks: make(map[uuid.UUID][]*core.Task),
 	}
@@ -800,7 +800,7 @@ func TestListJobsWithStatusFilter(t *testing.T) {
 		},
 		SubmittedAt: time.Now(),
 	}
-	mockCtrl.SubmitJob(pendingJob)
+	mockSvc.SubmitJob(pendingJob)
 
 	runningJob := &core.Job{
 		ID:     uuid.New(),
@@ -816,7 +816,7 @@ func TestListJobsWithStatusFilter(t *testing.T) {
 		},
 		SubmittedAt: time.Now(),
 	}
-	mockCtrl.jobs[runningJob.ID] = runningJob
+	mockSvc.jobs[runningJob.ID] = runningJob
 
 	completedJob := &core.Job{
 		ID:     uuid.New(),
@@ -832,10 +832,10 @@ func TestListJobsWithStatusFilter(t *testing.T) {
 		},
 		SubmittedAt: time.Now(),
 	}
-	mockCtrl.jobs[completedJob.ID] = completedJob
+	mockSvc.jobs[completedJob.ID] = completedJob
 
 	logger := newMockLogger()
-	api := NewAPI(mockCtrl, logger)
+	api := NewAPI(mockSvc, logger)
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
@@ -889,8 +889,8 @@ func TestListJobsWithStatusFilter(t *testing.T) {
 }
 
 func TestListJobsWithFilterAndPagination(t *testing.T) {
-	// Use the mock controller directly
-	mockCtrl := &mockJobController{
+	// Use the mock service directly
+	mockSvc := &mockJobService{
 		jobs:  make(map[uuid.UUID]*core.Job),
 		tasks: make(map[uuid.UUID][]*core.Task),
 	}
@@ -911,7 +911,7 @@ func TestListJobsWithFilterAndPagination(t *testing.T) {
 			},
 			SubmittedAt: time.Now(),
 		}
-		mockCtrl.SubmitJob(job)
+		mockSvc.SubmitJob(job)
 	}
 
 	for i := 0; i < 5; i++ {
@@ -929,11 +929,11 @@ func TestListJobsWithFilterAndPagination(t *testing.T) {
 			},
 			SubmittedAt: time.Now(),
 		}
-		mockCtrl.jobs[job.ID] = job
+		mockSvc.jobs[job.ID] = job
 	}
 
 	logger := newMockLogger()
-	api := NewAPI(mockCtrl, logger)
+	api := NewAPI(mockSvc, logger)
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 

@@ -10,7 +10,6 @@ import (
 
 	"github.com/nemanja-m/gomr/internal/coordinator/api/grpc"
 	"github.com/nemanja-m/gomr/internal/coordinator/api/rest"
-	"github.com/nemanja-m/gomr/internal/coordinator/core"
 	"github.com/nemanja-m/gomr/internal/coordinator/service"
 	"github.com/nemanja-m/gomr/internal/coordinator/storage"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
@@ -34,11 +33,11 @@ func main() {
 	}
 
 	logger := logging.NewSlogLogger(slog.LevelInfo)
-	orchestrator := core.NewJobController(storage.NewInMemoryJobStore(), logger)
-	restServer := rest.NewServer(restServerAddr, orchestrator, logger)
+	jobService := service.NewJobService(storage.NewInMemoryJobStore(), logger)
+	restServer := rest.NewServer(restServerAddr, jobService, logger)
 
-	workerSvc := service.NewWorkerService(storage.NewInMemoryWorkerStore(), logger)
-	grpcServer := grpc.NewServer(grpcServerAddr, enableGRPCReflection, workerSvc, logger)
+	workerService := service.NewWorkerService(storage.NewInMemoryWorkerStore(), logger)
+	grpcServer := grpc.NewServer(grpcServerAddr, enableGRPCReflection, workerService, logger)
 
 	go func() {
 		logger.Info("Starting coordinator API server", "address", restServerAddr)

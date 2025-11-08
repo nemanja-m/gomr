@@ -14,14 +14,14 @@ import (
 )
 
 type API struct {
-	jobController core.JobController
-	logger        logging.Logger
+	jobService core.JobService
+	logger     logging.Logger
 }
 
-func NewAPI(jobController core.JobController, logger logging.Logger) *API {
+func NewAPI(jobService core.JobService, logger logging.Logger) *API {
 	return &API{
-		jobController: jobController,
-		logger:        logger,
+		jobService: jobService,
+		logger:     logger,
 	}
 }
 
@@ -46,7 +46,7 @@ func (a *API) submitJob(w http.ResponseWriter, r *http.Request) {
 	}
 
 	job := req.ToJob()
-	if err := a.jobController.SubmitJob(job); err != nil {
+	if err := a.jobService.SubmitJob(job); err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to submit job", err.Error())
 		return
 	}
@@ -77,7 +77,7 @@ func (a *API) getJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	job, err := a.jobController.GetJob(jobID)
+	job, err := a.jobService.GetJob(jobID)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to get job", err.Error())
 		return
@@ -122,7 +122,7 @@ func (a *API) listJobs(w http.ResponseWriter, r *http.Request) {
 		filter.Status = &status
 	}
 
-	jobs, total, err := a.jobController.GetJobs(filter)
+	jobs, total, err := a.jobService.GetJobs(filter)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to list jobs", err.Error())
 		return
@@ -167,7 +167,7 @@ func (a *API) getJobTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if job exists
-	job, err := a.jobController.GetJob(jobID)
+	job, err := a.jobService.GetJob(jobID)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to get job", err.Error())
 		return
@@ -178,7 +178,7 @@ func (a *API) getJobTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tasks, err := a.jobController.GetTasks(jobID)
+	tasks, err := a.jobService.GetTasks(jobID)
 	if err != nil {
 		a.respondError(w, http.StatusInternalServerError, "failed to list tasks", err.Error())
 		return
@@ -254,10 +254,10 @@ const (
 
 func NewServer(
 	addr string,
-	jobOrchestrator core.JobController,
+	jobService core.JobService,
 	logger logging.Logger,
 ) *http.Server {
-	api := NewAPI(jobOrchestrator, logger)
+	api := NewAPI(jobService, logger)
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 

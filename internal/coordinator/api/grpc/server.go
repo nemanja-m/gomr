@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/nemanja-m/gomr/internal/coordinator/service"
+	"github.com/nemanja-m/gomr/internal/coordinator/core"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 	"github.com/nemanja-m/gomr/internal/shared/proto"
 )
@@ -22,7 +22,7 @@ type Server struct {
 func NewServer(
 	addr string,
 	enableReflection bool,
-	workerService service.WorkerService,
+	workerService core.WorkerService,
 	logger logging.Logger,
 ) *Server {
 	grpcServer := grpc.NewServer()
