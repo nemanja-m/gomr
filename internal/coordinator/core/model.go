@@ -161,6 +161,6 @@ type Worker struct {
 }
 
 type WorkerCapabilities struct {
-	AvailableCpuCores    float64
+	AvailableCpuCores    uint32
 	AvailableMemoryBytes uint64
 }

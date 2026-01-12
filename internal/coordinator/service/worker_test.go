@@ -215,7 +215,7 @@ func TestWorkerService_RegisterWorker_Success(t *testing.T) {
 			t.Fatalf("failed to get worker: %v", err)
 		}
 		if storedWorker.Capabilities.AvailableCpuCores != 8 {
-			t.Errorf("expected 8 CPU cores, got %f", storedWorker.Capabilities.AvailableCpuCores)
+			t.Errorf("expected 8 CPU cores, got %d", storedWorker.Capabilities.AvailableCpuCores)
 		}
 		if storedWorker.Capabilities.AvailableMemoryBytes != 17179869184 {
 			t.Errorf("expected 16GB memory, got %d bytes", storedWorker.Capabilities.AvailableMemoryBytes)
@@ -427,7 +427,7 @@ func TestWorkerService_EdgeCases(t *testing.T) {
 			t.Fatalf("failed to get worker: %v", err)
 		}
 		if storedWorker.Capabilities.AvailableCpuCores != 0 {
-			t.Errorf("expected 0 CPU cores, got %f", storedWorker.Capabilities.AvailableCpuCores)
+			t.Errorf("expected 0 CPU cores, got %d", storedWorker.Capabilities.AvailableCpuCores)
 		}
 	})
 }

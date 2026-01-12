@@ -50,6 +50,10 @@ func (s *CoordinatorService) RegisterWorker(
 	worker := &core.Worker{
 		ID:      workerId,
 		Address: req.Address,
+		Capabilities: core.WorkerCapabilities{
+			AvailableCpuCores:    req.AvailableCpuCores,
+			AvailableMemoryBytes: req.AvailableMemoryBytes,
+		},
 	}
 
 	s.logger.Debug("Received worker registration", "worker_id", worker.ID.String(), "address", worker.Address)
@@ -65,6 +69,8 @@ func (s *CoordinatorService) RegisterWorker(
 	s.logger.Info("Worker registered successfully",
 		"worker_id", worker.ID.String(),
 		"address", worker.Address,
+		"cpu_cores", worker.Capabilities.AvailableCpuCores,
+		"memory_bytes", worker.Capabilities.AvailableMemoryBytes,
 	)
 
 	return &proto.RegisterWorkerResponse{

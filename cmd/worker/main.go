@@ -15,6 +15,7 @@ import (
 	"github.com/nemanja-m/gomr/internal/shared/config"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 	"github.com/nemanja-m/gomr/internal/worker/api/grpc"
+	"github.com/nemanja-m/gomr/internal/worker/service"
 )
 
 func main() {
@@ -29,8 +30,6 @@ func main() {
 
 	logger := logging.NewSlogLogger(slog.LevelInfo)
 	workerID := uuid.New()
-
-	logger.Info("Starting worker", "worker_id", workerID.String())
 
 	client, err := grpc.NewCoordinatorClient(cfg.Coordinator.Addr, cfg.Coordinator.GRPC, workerID)
 	if err != nil {
@@ -51,28 +50,24 @@ func main() {
 		logger.Fatal("Failed to register worker", "error", err)
 	}
 
-	logger.Info("Worker registered successfully",
-		"coordinator", cfg.Coordinator.Addr,
+	executor := service.NewNoopExecutor()
+	workerService := service.NewWorkerService(client, executor, heartbeatInterval, logger)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	go workerService.Run(ctx)
+
+	logger.Info("Worker started",
 		"worker_id", workerID.String(),
 		"cpu_cores", availableCPU,
 		"memory_bytes", availableMemory,
 		"heartbeat", heartbeatInterval.String(),
 	)
 
-	heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
-	go client.StartHeartbeat(heartbeatCtx, heartbeatInterval, logger)
-
-	// Start task pulling loop
-	taskCtx, taskCancel := context.WithCancel(context.Background())
-	pullInterval := 1 * time.Second
-	go client.StartTaskLoop(taskCtx, pullInterval, logger)
-
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	taskCancel()
-	heartbeatCancel()
+	cancel()
 
 	logger.Info("Shutting down worker", "worker_id", workerID.String())
 }
