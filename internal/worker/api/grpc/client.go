@@ -27,7 +27,7 @@ func NewCoordinatorClient(coordinatorAddr string, workerID uuid.UUID) (*Coordina
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithKeepaliveParams(
 			keepalive.ClientParameters{
-				Time:                10 * time.Second,
+				Time:                30 * time.Second,
 				Timeout:             5 * time.Second,
 				PermitWithoutStream: true,
 			},

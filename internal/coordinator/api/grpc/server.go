@@ -29,7 +29,7 @@ func NewServer(
 ) *Server {
 	grpcServer := grpc.NewServer(
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             10 * time.Second,
+			MinTime:             30 * time.Second,
 			PermitWithoutStream: true,
 		}),
 	)
