@@ -24,6 +24,7 @@ type Server struct {
 func NewServer(
 	cfg config.GRPCConfig,
 	workerService core.WorkerService,
+	jobService core.JobService,
 	logger logging.Logger,
 ) *Server {
 	grpcServer := grpc.NewServer(
@@ -33,7 +34,15 @@ func NewServer(
 		}),
 	)
 
-	proto.RegisterCoordinatorServiceServer(grpcServer, NewCoordinatorService(cfg.HeartbeatInterval, workerService, logger))
+	proto.RegisterCoordinatorServiceServer(
+		grpcServer,
+		NewCoordinatorService(
+			cfg.HeartbeatInterval,
+			workerService,
+			jobService,
+			logger,
+		),
+	)
 
 	if cfg.EnableReflection {
 		reflection.Register(grpcServer)

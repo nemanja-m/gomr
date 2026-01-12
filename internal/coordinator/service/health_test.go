@@ -102,16 +102,62 @@ func (l *healthTestLogger) getMessages() []string {
 	return append([]string{}, l.messages...)
 }
 
+// mockJobServiceForHealth is a mock for JobService used in health checker tests
+type mockJobServiceForHealth struct {
+	mu          sync.Mutex
+	requeuedIDs []uuid.UUID
+	requeueErr  error
+}
+
+func (m *mockJobServiceForHealth) SubmitJob(job *core.Job) error {
+	return nil
+}
+
+func (m *mockJobServiceForHealth) GetJob(id uuid.UUID) (*core.Job, error) {
+	return nil, nil
+}
+
+func (m *mockJobServiceForHealth) GetJobs(filter core.JobFilter) ([]*core.Job, int, error) {
+	return nil, 0, nil
+}
+
+func (m *mockJobServiceForHealth) GetTasks(jobID uuid.UUID) ([]*core.Task, error) {
+	return nil, nil
+}
+
+func (m *mockJobServiceForHealth) AssignTask(workerID uuid.UUID) (*core.Task, error) {
+	return nil, nil
+}
+
+func (m *mockJobServiceForHealth) CompleteTask(taskID uuid.UUID, workerID uuid.UUID) error {
+	return nil
+}
+
+func (m *mockJobServiceForHealth) FailTask(taskID uuid.UUID, workerID uuid.UUID, errMsg string) error {
+	return nil
+}
+
+func (m *mockJobServiceForHealth) RequeueWorkerTasks(workerID uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.requeueErr != nil {
+		return m.requeueErr
+	}
+	m.requeuedIDs = append(m.requeuedIDs, workerID)
+	return nil
+}
+
 func TestWorkerHealthChecker_RemovesStaleWorkers(t *testing.T) {
 	worker1 := &core.Worker{ID: uuid.New(), Address: "worker1:5000"}
 	worker2 := &core.Worker{ID: uuid.New(), Address: "worker2:5000"}
 
-	mockService := &mockWorkerServiceForHealth{
+	mockWorkerService := &mockWorkerServiceForHealth{
 		staleWorkers: []*core.Worker{worker1, worker2},
 	}
+	mockJobService := &mockJobServiceForHealth{}
 	logger := &healthTestLogger{}
 
-	checker := NewWorkerHealthChecker(10*time.Millisecond, 15*time.Second, mockService, logger)
+	checker := NewWorkerHealthChecker(10*time.Millisecond, 15*time.Second, mockWorkerService, mockJobService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go checker.Start(ctx)
@@ -120,7 +166,7 @@ func TestWorkerHealthChecker_RemovesStaleWorkers(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 	cancel()
 
-	removedIDs := mockService.getRemovedIDs()
+	removedIDs := mockWorkerService.getRemovedIDs()
 	if len(removedIDs) < 2 {
 		t.Errorf("expected at least 2 workers removed, got %d", len(removedIDs))
 	}
@@ -142,10 +188,11 @@ func TestWorkerHealthChecker_RemovesStaleWorkers(t *testing.T) {
 }
 
 func TestWorkerHealthChecker_StopsOnContextCancel(t *testing.T) {
-	mockService := &mockWorkerServiceForHealth{}
+	mockWorkerService := &mockWorkerServiceForHealth{}
+	mockJobService := &mockJobServiceForHealth{}
 	logger := &healthTestLogger{}
 
-	checker := NewWorkerHealthChecker(5*time.Millisecond, 15*time.Second, mockService, logger)
+	checker := NewWorkerHealthChecker(5*time.Millisecond, 15*time.Second, mockWorkerService, mockJobService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -169,11 +216,12 @@ func TestWorkerHealthChecker_StopsOnContextCancel(t *testing.T) {
 }
 
 func TestWorkerHealthChecker_RunsAtConfiguredInterval(t *testing.T) {
-	mockService := &mockWorkerServiceForHealth{}
+	mockWorkerService := &mockWorkerServiceForHealth{}
+	mockJobService := &mockJobServiceForHealth{}
 	logger := &healthTestLogger{}
 
 	checkInterval := 20 * time.Millisecond
-	checker := NewWorkerHealthChecker(checkInterval, 15*time.Second, mockService, logger)
+	checker := NewWorkerHealthChecker(checkInterval, 15*time.Second, mockWorkerService, mockJobService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go checker.Start(ctx)
@@ -182,7 +230,7 @@ func TestWorkerHealthChecker_RunsAtConfiguredInterval(t *testing.T) {
 	time.Sleep(70 * time.Millisecond)
 	cancel()
 
-	callCount := mockService.getStaleCallCount()
+	callCount := mockWorkerService.getStaleCallCount()
 	// Should have been called 2-4 times (accounting for timing variability)
 	if callCount < 2 || callCount > 5 {
 		t.Errorf("expected 2-5 calls to GetStaleWorkers, got %d", callCount)
@@ -190,12 +238,13 @@ func TestWorkerHealthChecker_RunsAtConfiguredInterval(t *testing.T) {
 }
 
 func TestWorkerHealthChecker_NoStaleWorkers(t *testing.T) {
-	mockService := &mockWorkerServiceForHealth{
+	mockWorkerService := &mockWorkerServiceForHealth{
 		staleWorkers: []*core.Worker{}, // No stale workers
 	}
+	mockJobService := &mockJobServiceForHealth{}
 	logger := &healthTestLogger{}
 
-	checker := NewWorkerHealthChecker(10*time.Millisecond, 15*time.Second, mockService, logger)
+	checker := NewWorkerHealthChecker(10*time.Millisecond, 15*time.Second, mockWorkerService, mockJobService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go checker.Start(ctx)
@@ -203,7 +252,7 @@ func TestWorkerHealthChecker_NoStaleWorkers(t *testing.T) {
 	time.Sleep(30 * time.Millisecond)
 	cancel()
 
-	removedIDs := mockService.getRemovedIDs()
+	removedIDs := mockWorkerService.getRemovedIDs()
 	if len(removedIDs) != 0 {
 		t.Errorf("expected no workers removed, got %d", len(removedIDs))
 	}
@@ -212,12 +261,13 @@ func TestWorkerHealthChecker_NoStaleWorkers(t *testing.T) {
 func TestWorkerHealthChecker_LogsOnRemoval(t *testing.T) {
 	worker := &core.Worker{ID: uuid.New(), Address: "worker:5000"}
 
-	mockService := &mockWorkerServiceForHealth{
+	mockWorkerService := &mockWorkerServiceForHealth{
 		staleWorkers: []*core.Worker{worker},
 	}
+	mockJobService := &mockJobServiceForHealth{}
 	logger := &healthTestLogger{}
 
-	checker := NewWorkerHealthChecker(10*time.Millisecond, 15*time.Second, mockService, logger)
+	checker := NewWorkerHealthChecker(10*time.Millisecond, 15*time.Second, mockWorkerService, mockJobService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go checker.Start(ctx)

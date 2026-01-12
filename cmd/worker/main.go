@@ -56,16 +56,22 @@ func main() {
 		"worker_id", workerID.String(),
 		"cpu_cores", availableCPU,
 		"memory_bytes", availableMemory,
-		"heartbeat_interval_seconds", heartbeatInterval.Seconds(),
+		"heartbeat", heartbeatInterval.String(),
 	)
 
 	heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
 	go client.StartHeartbeat(heartbeatCtx, heartbeatInterval, logger)
 
+	// Start task pulling loop
+	taskCtx, taskCancel := context.WithCancel(context.Background())
+	pullInterval := 1 * time.Second
+	go client.StartTaskLoop(taskCtx, pullInterval, logger)
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
+	taskCancel()
 	heartbeatCancel()
 
 	logger.Info("Shutting down worker", "worker_id", workerID.String())

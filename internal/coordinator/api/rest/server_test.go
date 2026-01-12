@@ -82,6 +82,22 @@ func (m *mockJobService) NextTask() (*core.Task, error) {
 	return nil, nil
 }
 
+func (m *mockJobService) AssignTask(workerID uuid.UUID) (*core.Task, error) {
+	return nil, nil
+}
+
+func (m *mockJobService) CompleteTask(taskID uuid.UUID, workerID uuid.UUID) error {
+	return nil
+}
+
+func (m *mockJobService) FailTask(taskID uuid.UUID, workerID uuid.UUID, errMsg string) error {
+	return nil
+}
+
+func (m *mockJobService) RequeueWorkerTasks(workerID uuid.UUID) error {
+	return nil
+}
+
 func newTestAPI() *API {
 	logger := newMockLogger()
 	jobService := newMockJobService()

@@ -12,7 +12,11 @@ type JobService interface {
 	GetJob(id uuid.UUID) (*Job, error)
 	GetJobs(filter JobFilter) ([]*Job, int, error)
 	GetTasks(jobID uuid.UUID) ([]*Task, error)
-	NextTask() (*Task, error)
+
+	AssignTask(workerID uuid.UUID) (*Task, error)
+	CompleteTask(taskID uuid.UUID, workerID uuid.UUID) error
+	FailTask(taskID uuid.UUID, workerID uuid.UUID, errMsg string) error
+	RequeueWorkerTasks(workerID uuid.UUID) error
 }
 
 // WorkerService defines the interface for worker management

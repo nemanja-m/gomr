@@ -32,8 +32,8 @@ func main() {
 	restServer := rest.NewServer(cfg.REST, jobService, logger)
 
 	workerService := service.NewWorkerService(storage.NewInMemoryWorkerStore(), logger)
-	grpcServer := grpc.NewServer(cfg.GRPC, workerService, logger)
-	healthChecker := service.NewWorkerHealthChecker(cfg.Health.CheckInterval, cfg.Health.StaleTimeout, workerService, logger)
+	grpcServer := grpc.NewServer(cfg.GRPC, workerService, jobService, logger)
+	healthChecker := service.NewWorkerHealthChecker(cfg.Health.CheckInterval, cfg.Health.StaleTimeout, workerService, jobService, logger)
 
 	go func() {
 		logger.Info("Started REST server", "address", cfg.REST.Addr)

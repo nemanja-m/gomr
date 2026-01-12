@@ -119,6 +119,20 @@ func (s *InMemoryJobStore) IsMapPhaseCompleted(jobID uuid.UUID) (bool, error) {
 	return true, nil
 }
 
+func (s *InMemoryJobStore) GetRunningTasksByWorkerID(workerID uuid.UUID) ([]*core.Task, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var result []*core.Task
+	for _, tasks := range s.tasks {
+		for _, task := range tasks {
+			if task.WorkerID != nil && *task.WorkerID == workerID && task.Status == core.TaskStatusRunning {
+				result = append(result, task)
+			}
+		}
+	}
+	return result, nil
+}
+
 // InMemoryWorkerStore is an in-memory implementation of WorkerStore for testing and development purposes.
 type InMemoryWorkerStore struct {
 	mu      sync.RWMutex

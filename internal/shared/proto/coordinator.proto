@@ -8,6 +8,10 @@ option go_package = "internal/shared/proto";
 service CoordinatorService {
     rpc RegisterWorker(RegisterWorkerRequest) returns (RegisterWorkerResponse);
     rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+    rpc PullTask(PullTaskRequest) returns (PullTaskResponse);
+    rpc CompleteTask(CompleteTaskRequest) returns (CompleteTaskResponse);
+    rpc FailTask(FailTaskRequest) returns (FailTaskResponse);
 }
 
 // Worker registration
@@ -42,4 +46,70 @@ message HeartbeatRequest {
 
 message HeartbeatResponse {
     bool acknowledged = 1;
+}
+
+// Task pulling
+
+enum TaskType {
+    MAP = 0;
+    REDUCE = 1;
+}
+
+message PullTaskRequest {
+    string worker_id = 1;
+}
+
+message PullTaskResponse {
+    TaskAssignment task = 1;
+}
+
+message TaskAssignment {
+    string task_id = 1;
+    string job_id = 2;
+    int32 attempt = 3;
+    TaskType type = 4;
+    TaskInput input = 5;
+    TaskOutput output = 6;
+    ExecutorSpec executor = 7;
+}
+
+message TaskInput {
+    string type = 1;
+    string format = 2;
+    repeated string paths = 3;
+}
+
+message TaskOutput {
+    string type = 1;
+    string path = 2;
+}
+
+message ExecutorSpec {
+    string type = 1;
+    string uri = 2;
+}
+
+// Task completion
+
+message CompleteTaskRequest {
+    string worker_id = 1;
+    string task_id = 2;
+}
+
+message CompleteTaskResponse {
+    bool acknowledged = 1;
+    string message = 2;
+}
+
+// Task failure
+
+message FailTaskRequest {
+    string worker_id = 1;
+    string task_id = 2;
+    string error = 3;
+}
+
+message FailTaskResponse {
+    bool acknowledged = 1;
+    string message = 2;
 }

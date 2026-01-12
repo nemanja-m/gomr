@@ -34,6 +34,14 @@ type Job struct {
 	Errors []JobError
 }
 
+func (j *Job) Duration() time.Duration {
+	if j.StartedAt == nil && j.CompletedAt == nil {
+		return 0
+	}
+
+	return j.CompletedAt.Sub(*j.StartedAt)
+}
+
 type InputConfig struct {
 	Type   string
 	Format string
@@ -116,12 +124,13 @@ const (
 )
 
 type Task struct {
-	ID     uuid.UUID
-	JobID  uuid.UUID
-	Type   TaskType
-	Status TaskStatus
-	Input  InputConfig
-	Output OutputConfig
+	ID       uuid.UUID
+	JobID    uuid.UUID
+	WorkerID *uuid.UUID
+	Type     TaskType
+	Status   TaskStatus
+	Input    InputConfig
+	Output   OutputConfig
 
 	StartedAt *time.Time
 	EndedAt   *time.Time

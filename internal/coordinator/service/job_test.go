@@ -130,6 +130,20 @@ func (s *mockJobStore) IsMapPhaseCompleted(jobID uuid.UUID) (bool, error) {
 	return true, nil
 }
 
+func (s *mockJobStore) GetRunningTasksByWorkerID(workerID uuid.UUID) ([]*core.Task, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var result []*core.Task
+	for _, tasks := range s.tasks {
+		for _, task := range tasks {
+			if task.WorkerID != nil && *task.WorkerID == workerID && task.Status == core.TaskStatusRunning {
+				result = append(result, task)
+			}
+		}
+	}
+	return result, nil
+}
+
 // createTestJob creates a test job with the given input paths
 func createTestJob(inputPaths []string, numReducers int) *core.Job {
 	return &core.Job{
@@ -554,159 +568,6 @@ func TestJobService_GetTasks(t *testing.T) {
 		}
 		if len(tasks) != 0 {
 			t.Errorf("expected empty tasks, got %d", len(tasks))
-		}
-	})
-}
-
-func TestJobService_NextTask(t *testing.T) {
-	t.Run("next task returns map task first", func(t *testing.T) {
-		store := newMockJobStore()
-		logger := &mockLogger{}
-		service := NewJobService(store, logger)
-
-		filePaths, _ := createTempTestFiles(t, 2)
-		job := createTestJob(filePaths, 1)
-
-		err := service.SubmitJob(job)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// Get next task - should be a map task
-		task, err := service.NextTask()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if task == nil {
-			t.Fatal("expected task, got nil")
-		}
-		if task.Type != core.TaskTypeMap {
-			t.Errorf("expected map task, got %s", task.Type)
-		}
-	})
-
-	t.Run("next task returns nil when queue is empty", func(t *testing.T) {
-		store := newMockJobStore()
-		logger := &mockLogger{}
-		service := NewJobService(store, logger)
-
-		task, err := service.NextTask()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if task != nil {
-			t.Errorf("expected nil task, got %v", task)
-		}
-	})
-
-	t.Run("reduce tasks not returned until map phase complete", func(t *testing.T) {
-		store := newMockJobStore()
-		logger := &mockLogger{}
-		service := NewJobService(store, logger)
-
-		filePaths, _ := createTempTestFiles(t, 2)
-		job := createTestJob(filePaths, 1)
-
-		err := service.SubmitJob(job)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// Pop all map tasks
-		task1, _ := service.NextTask()
-		task2, _ := service.NextTask()
-
-		// Both should be map tasks
-		if task1.Type != core.TaskTypeMap || task2.Type != core.TaskTypeMap {
-			t.Error("expected both tasks to be map tasks")
-		}
-
-		// Next task should be nil (reduce task blocked until map phase completes)
-		task3, err := service.NextTask()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if task3 != nil {
-			t.Errorf("expected nil task (reduce blocked), got %v type", task3.Type)
-		}
-
-		// Mark map tasks as completed
-		task1.Status = core.TaskStatusCompleted
-		task2.Status = core.TaskStatusCompleted
-		_ = store.UpdateTask(task1)
-		_ = store.UpdateTask(task2)
-
-		// Now reduce task should be available
-		task4, err := service.NextTask()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if task4 == nil {
-			t.Fatal("expected reduce task after map phase complete")
-		}
-		if task4.Type != core.TaskTypeReduce {
-			t.Errorf("expected reduce task, got %s", task4.Type)
-		}
-	})
-
-	t.Run("multiple jobs - returns highest priority task", func(t *testing.T) {
-		store := newMockJobStore()
-		logger := &mockLogger{}
-		service := NewJobService(store, logger)
-
-		// Submit first job
-		filePaths1, _ := createTempTestFiles(t, 1)
-		job1 := createTestJob(filePaths1, 1)
-		_ = service.SubmitJob(job1)
-
-		// Submit second job
-		filePaths2, _ := createTempTestFiles(t, 1)
-		job2 := createTestJob(filePaths2, 1)
-		_ = service.SubmitJob(job2)
-
-		// Should get a map task (high priority)
-		task, err := service.NextTask()
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		if task == nil {
-			t.Fatal("expected task, got nil")
-		}
-		if task.Type != core.TaskTypeMap {
-			t.Errorf("expected map task, got %s", task.Type)
-		}
-	})
-
-	t.Run("FIFO order for same priority tasks", func(t *testing.T) {
-		store := newMockJobStore()
-		logger := &mockLogger{}
-		service := NewJobService(store, logger)
-
-		filePaths, _ := createTempTestFiles(t, 3)
-		job := createTestJob(filePaths, 1)
-
-		err := service.SubmitJob(job)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-
-		// Get all map tasks - should be in FIFO order
-		task1, _ := service.NextTask()
-		task2, _ := service.NextTask()
-		task3, _ := service.NextTask()
-
-		if task1 == nil || task2 == nil || task3 == nil {
-			t.Fatal("expected 3 map tasks")
-		}
-
-		// All should be map tasks
-		if task1.Type != core.TaskTypeMap || task2.Type != core.TaskTypeMap || task3.Type != core.TaskTypeMap {
-			t.Error("expected all tasks to be map tasks")
-		}
-
-		// Verify they have different IDs (all unique)
-		if task1.ID == task2.ID || task2.ID == task3.ID || task1.ID == task3.ID {
-			t.Error("expected unique task IDs")
 		}
 	})
 }
