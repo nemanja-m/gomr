@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -10,21 +11,20 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/nemanja-m/gomr/internal/shared/config"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 	"github.com/nemanja-m/gomr/internal/worker/api/grpc"
 )
 
-var (
-	coordinatorAddr = ":9090"
-	workerAddr      = ":50051"
-)
-
 func main() {
-	if envAddr := os.Getenv("COORDINATOR_ADDR"); envAddr != "" {
-		coordinatorAddr = envAddr
-	}
-	if envAddr := os.Getenv("WORKER_ADDR"); envAddr != "" {
-		workerAddr = envAddr
+	configPath := flag.String("config", "", "path to config file")
+	flag.Parse()
+
+	cfg, err := config.LoadWorker(*configPath)
+	if err != nil {
+		slog.Error("Failed to load config", "error", err)
+		os.Exit(1)
 	}
 
 	logger := logging.NewSlogLogger(slog.LevelInfo)
@@ -32,7 +32,7 @@ func main() {
 
 	logger.Info("Starting worker", "worker_id", workerID.String())
 
-	client, err := grpc.NewCoordinatorClient(coordinatorAddr, workerID)
+	client, err := grpc.NewCoordinatorClient(cfg.Coordinator.Addr, cfg.Coordinator.GRPC, workerID)
 	if err != nil {
 		logger.Fatal("Failed to create coordinator client", "error", err)
 	}
@@ -46,13 +46,13 @@ func main() {
 	runtime.ReadMemStats(&memStats)
 	availableMemory := memStats.Sys
 
-	heartbeatInterval, err := client.RegisterWorker(regCtx, workerAddr, availableCPU, availableMemory)
+	heartbeatInterval, err := client.RegisterWorker(regCtx, cfg.Server.Addr, availableCPU, availableMemory)
 	if err != nil {
 		logger.Fatal("Failed to register worker", "error", err)
 	}
 
 	logger.Info("Worker registered successfully",
-		"coordinator", coordinatorAddr,
+		"coordinator", cfg.Coordinator.Addr,
 		"worker_id", workerID.String(),
 		"cpu_cores", availableCPU,
 		"memory_bytes", availableMemory,

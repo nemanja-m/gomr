@@ -1,0 +1,12 @@
+server:
+  addr: ":50051"
+
+coordinator:
+  addr: "localhost:9090"
+  grpc:
+    keepalive_time: 30s
+    keepalive_timeout: 5s
+
+logging:
+  level: info
+  format: json

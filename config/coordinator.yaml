@@ -1,0 +1,19 @@
+rest:
+  addr: ":8080"
+  read_timeout: 15s
+  write_timeout: 15s
+  idle_timeout: 60s
+
+grpc:
+  addr: ":9090"
+  enable_reflection: true
+  keepalive_min_time: 30s
+  heartbeat_interval: 15s
+
+health:
+  check_interval: 5s
+  stale_timeout: 15s
+
+logging:
+  level: info
+  format: json

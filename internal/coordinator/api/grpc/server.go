@@ -2,13 +2,13 @@ package grpc
 
 import (
 	"net"
-	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
+	"github.com/nemanja-m/gomr/internal/shared/config"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 	"github.com/nemanja-m/gomr/internal/shared/proto"
 )
@@ -22,30 +22,28 @@ type Server struct {
 }
 
 func NewServer(
-	addr string,
-	enableReflection bool,
+	cfg config.GRPCConfig,
 	workerService core.WorkerService,
 	logger logging.Logger,
 ) *Server {
 	grpcServer := grpc.NewServer(
 		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-			MinTime:             30 * time.Second,
+			MinTime:             cfg.KeepaliveMinTime,
 			PermitWithoutStream: true,
 		}),
 	)
 
-	proto.RegisterCoordinatorServiceServer(grpcServer, NewCoordinatorService(workerService, logger))
+	proto.RegisterCoordinatorServiceServer(grpcServer, NewCoordinatorService(cfg.HeartbeatInterval, workerService, logger))
 
-	if enableReflection {
+	if cfg.EnableReflection {
 		reflection.Register(grpcServer)
 	}
 
 	return &Server{
-		addr:       addr,
+		addr:       cfg.Addr,
 		grpcServer: grpcServer,
 		logger:     logger,
 	}
-
 }
 
 func (s *Server) Start() error {

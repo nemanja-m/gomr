@@ -9,22 +9,22 @@ import (
 )
 
 type WorkerHealthChecker struct {
-	workerService core.WorkerService
 	checkInterval time.Duration
 	staleTimeout  time.Duration
+	workerService core.WorkerService
 	logger        logging.Logger
 }
 
 func NewWorkerHealthChecker(
-	workerService core.WorkerService,
 	checkInterval time.Duration,
 	staleTimeout time.Duration,
+	workerService core.WorkerService,
 	logger logging.Logger,
 ) *WorkerHealthChecker {
 	return &WorkerHealthChecker{
-		workerService: workerService,
 		checkInterval: checkInterval,
 		staleTimeout:  staleTimeout,
+		workerService: workerService,
 		logger:        logger,
 	}
 }

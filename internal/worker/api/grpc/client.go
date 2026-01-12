@@ -10,6 +10,8 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/google/uuid"
+
+	"github.com/nemanja-m/gomr/internal/shared/config"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 	"github.com/nemanja-m/gomr/internal/shared/proto"
 )
@@ -22,14 +24,14 @@ type CoordinatorClient struct {
 	coordinatorAddr string
 }
 
-func NewCoordinatorClient(coordinatorAddr string, workerID uuid.UUID) (*CoordinatorClient, error) {
+func NewCoordinatorClient(coordinatorAddr string, grpcCfg config.WorkerGRPCConfig, workerID uuid.UUID) (*CoordinatorClient, error) {
 	conn, err := grpc.NewClient(
 		coordinatorAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithKeepaliveParams(
 			keepalive.ClientParameters{
-				Time:                30 * time.Second,
-				Timeout:             5 * time.Second,
+				Time:                grpcCfg.KeepaliveTime,
+				Timeout:             grpcCfg.KeepaliveTimeout,
 				PermitWithoutStream: true,
 			},
 		),

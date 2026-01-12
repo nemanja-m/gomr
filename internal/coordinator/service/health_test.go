@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -110,7 +111,7 @@ func TestWorkerHealthChecker_RemovesStaleWorkers(t *testing.T) {
 	}
 	logger := &healthTestLogger{}
 
-	checker := NewWorkerHealthChecker(mockService, 10*time.Millisecond, 15*time.Second, logger)
+	checker := NewWorkerHealthChecker(10*time.Millisecond, 15*time.Second, mockService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go checker.Start(ctx)
@@ -144,7 +145,7 @@ func TestWorkerHealthChecker_StopsOnContextCancel(t *testing.T) {
 	mockService := &mockWorkerServiceForHealth{}
 	logger := &healthTestLogger{}
 
-	checker := NewWorkerHealthChecker(mockService, 5*time.Millisecond, 15*time.Second, logger)
+	checker := NewWorkerHealthChecker(5*time.Millisecond, 15*time.Second, mockService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -172,7 +173,7 @@ func TestWorkerHealthChecker_RunsAtConfiguredInterval(t *testing.T) {
 	logger := &healthTestLogger{}
 
 	checkInterval := 20 * time.Millisecond
-	checker := NewWorkerHealthChecker(mockService, checkInterval, 15*time.Second, logger)
+	checker := NewWorkerHealthChecker(checkInterval, 15*time.Second, mockService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go checker.Start(ctx)
@@ -194,7 +195,7 @@ func TestWorkerHealthChecker_NoStaleWorkers(t *testing.T) {
 	}
 	logger := &healthTestLogger{}
 
-	checker := NewWorkerHealthChecker(mockService, 10*time.Millisecond, 15*time.Second, logger)
+	checker := NewWorkerHealthChecker(10*time.Millisecond, 15*time.Second, mockService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go checker.Start(ctx)
@@ -216,7 +217,7 @@ func TestWorkerHealthChecker_LogsOnRemoval(t *testing.T) {
 	}
 	logger := &healthTestLogger{}
 
-	checker := NewWorkerHealthChecker(mockService, 10*time.Millisecond, 15*time.Second, logger)
+	checker := NewWorkerHealthChecker(10*time.Millisecond, 15*time.Second, mockService, logger)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	go checker.Start(ctx)
@@ -225,13 +226,7 @@ func TestWorkerHealthChecker_LogsOnRemoval(t *testing.T) {
 	cancel()
 
 	messages := logger.getMessages()
-	found := false
-	for _, msg := range messages {
-		if msg == "Removing stale worker" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(messages, "Removing stale worker")
 	if !found {
 		t.Error("expected 'Removing stale worker' log message")
 	}

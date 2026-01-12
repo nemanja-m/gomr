@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
+	"github.com/nemanja-m/gomr/internal/shared/config"
 	"github.com/nemanja-m/gomr/internal/shared/logging"
 )
 
@@ -246,14 +246,8 @@ func (a *API) respondError(w http.ResponseWriter, statusCode int, error string, 
 	a.respondJSON(w, statusCode, resp)
 }
 
-const (
-	readTimeout  = 15 * time.Second
-	writeTimeout = 15 * time.Second
-	idleTimeout  = 60 * time.Second
-)
-
 func NewServer(
-	addr string,
+	cfg config.RESTConfig,
 	jobService core.JobService,
 	logger logging.Logger,
 ) *http.Server {
@@ -268,10 +262,10 @@ func NewServer(
 	)
 
 	return &http.Server{
-		Addr:         addr,
+		Addr:         cfg.Addr,
 		Handler:      handler,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-		IdleTimeout:  idleTimeout,
+		ReadTimeout:  cfg.ReadTimeout,
+		WriteTimeout: cfg.WriteTimeout,
+		IdleTimeout:  cfg.IdleTimeout,
 	}
 }

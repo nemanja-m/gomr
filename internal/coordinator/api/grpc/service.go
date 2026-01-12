@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -10,22 +11,20 @@ import (
 	"github.com/nemanja-m/gomr/internal/shared/proto"
 )
 
-const (
-	DefaultHeartbeatIntervalSeconds = 15
-)
-
 type CoordinatorService struct {
 	proto.UnimplementedCoordinatorServiceServer
 
-	workerService core.WorkerService
+	workerService     core.WorkerService
+	heartbeatInterval time.Duration
 
 	logger logging.Logger
 }
 
-func NewCoordinatorService(workerService core.WorkerService, logger logging.Logger) *CoordinatorService {
+func NewCoordinatorService(heartbeatInterval time.Duration, workerService core.WorkerService, logger logging.Logger) *CoordinatorService {
 	return &CoordinatorService{
-		workerService: workerService,
-		logger:        logger,
+		workerService:     workerService,
+		heartbeatInterval: heartbeatInterval,
+		logger:            logger,
 	}
 }
 
@@ -61,7 +60,7 @@ func (s *CoordinatorService) RegisterWorker(
 	return &proto.RegisterWorkerResponse{
 		Status:                   proto.RegistrationStatus_SUCCESS,
 		Message:                  "OK",
-		HeartbeatIntervalSeconds: DefaultHeartbeatIntervalSeconds,
+		HeartbeatIntervalSeconds: int32(s.heartbeatInterval.Seconds()),
 	}, nil
 }
 
