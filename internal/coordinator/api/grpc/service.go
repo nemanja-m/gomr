@@ -64,3 +64,22 @@ func (s *CoordinatorService) RegisterWorker(
 		HeartbeatIntervalSeconds: DefaultHeartbeatIntervalSeconds,
 	}, nil
 }
+
+func (s *CoordinatorService) Heartbeat(
+	ctx context.Context,
+	req *proto.HeartbeatRequest,
+) (*proto.HeartbeatResponse, error) {
+	workerID, err := uuid.Parse(req.WorkerId)
+	if err != nil {
+		s.logger.Error("Invalid worker ID in heartbeat", "worker_id", req.WorkerId, "error", err)
+		return &proto.HeartbeatResponse{Acknowledged: false}, nil
+	}
+
+	if err := s.workerService.RecordHeartbeat(workerID); err != nil {
+		s.logger.Error("Failed to record heartbeat", "worker_id", workerID, "error", err)
+		return &proto.HeartbeatResponse{Acknowledged: false}, nil
+	}
+
+	s.logger.Debug("Heartbeat received", "worker_id", workerID)
+	return &proto.HeartbeatResponse{Acknowledged: true}, nil
+}

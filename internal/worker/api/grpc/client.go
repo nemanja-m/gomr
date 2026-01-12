@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 
 	"github.com/google/uuid"
+	"github.com/nemanja-m/gomr/internal/shared/logging"
 	"github.com/nemanja-m/gomr/internal/shared/proto"
 )
 
@@ -52,7 +53,7 @@ func (c *CoordinatorClient) RegisterWorker(
 	addr string,
 	availableCpuCores uint32,
 	availableMemoryBytes uint64,
-) error {
+) (time.Duration, error) {
 	req := &proto.RegisterWorkerRequest{
 		WorkerId:             c.workerID.String(),
 		Address:              addr,
@@ -61,19 +62,52 @@ func (c *CoordinatorClient) RegisterWorker(
 	}
 	resp, err := c.client.RegisterWorker(ctx, req)
 	if err != nil {
-		return fmt.Errorf("failed to register worker: %w", err)
+		return 0, fmt.Errorf("failed to register worker: %w", err)
 	}
 
 	switch resp.Status {
 	case proto.RegistrationStatus_BAD_REQUEST:
-		return fmt.Errorf("bad request: %s", resp.Message)
+		return 0, fmt.Errorf("bad request: %s", resp.Message)
 	case proto.RegistrationStatus_REJECTED:
-		return fmt.Errorf("coordinator rejected worker: %s", resp.Message)
+		return 0, fmt.Errorf("coordinator rejected worker: %s", resp.Message)
 	case proto.RegistrationStatus_FAILED:
-		return fmt.Errorf("coordinator failed to register worker: %s", resp.Message)
+		return 0, fmt.Errorf("coordinator failed to register worker: %s", resp.Message)
 	}
 
+	heartbeatInterval := time.Duration(resp.HeartbeatIntervalSeconds) * time.Second
+	return heartbeatInterval, nil
+}
+
+func (c *CoordinatorClient) SendHeartbeat(ctx context.Context) error {
+	req := &proto.HeartbeatRequest{
+		WorkerId: c.workerID.String(),
+	}
+	resp, err := c.client.Heartbeat(ctx, req)
+	if err != nil {
+		return fmt.Errorf("heartbeat failed: %w", err)
+	}
+	if !resp.Acknowledged {
+		return fmt.Errorf("heartbeat not acknowledged")
+	}
 	return nil
+}
+
+func (c *CoordinatorClient) StartHeartbeat(ctx context.Context, interval time.Duration, logger logging.Logger) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if err := c.SendHeartbeat(ctx); err != nil {
+				logger.Error("Failed to send heartbeat", "error", err)
+			} else {
+				logger.Debug("Heartbeat sent successfully")
+			}
+		}
+	}
 }
 
 func (c *CoordinatorClient) Close() error {

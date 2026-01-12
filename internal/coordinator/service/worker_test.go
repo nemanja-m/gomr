@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -50,6 +51,36 @@ func (m *mockWorkerStore) GetAllWorkers() ([]*core.Worker, error) {
 		workers = append(workers, w)
 	}
 	return workers, nil
+}
+
+func (m *mockWorkerStore) UpdateWorkerHeartbeat(id uuid.UUID, timestamp time.Time) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	worker, exists := m.workers[id]
+	if !exists {
+		return fmt.Errorf("worker not found: %s", id)
+	}
+	worker.LastHeartbeatAt = timestamp
+	return nil
+}
+
+func (m *mockWorkerStore) RemoveWorker(id uuid.UUID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.workers, id)
+	return nil
+}
+
+func (m *mockWorkerStore) GetStaleWorkers(threshold time.Time) ([]*core.Worker, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var stale []*core.Worker
+	for _, worker := range m.workers {
+		if worker.LastHeartbeatAt.Before(threshold) {
+			stale = append(stale, worker)
+		}
+	}
+	return stale, nil
 }
 
 // mockLogger is a no-op logger for testing
@@ -288,6 +319,18 @@ func (f *failingWorkerStore) GetWorkerByID(id uuid.UUID) (*core.Worker, error) {
 }
 
 func (f *failingWorkerStore) GetAllWorkers() ([]*core.Worker, error) {
+	return nil, fmt.Errorf("store error")
+}
+
+func (f *failingWorkerStore) UpdateWorkerHeartbeat(id uuid.UUID, timestamp time.Time) error {
+	return fmt.Errorf("store error")
+}
+
+func (f *failingWorkerStore) RemoveWorker(id uuid.UUID) error {
+	return fmt.Errorf("store error")
+}
+
+func (f *failingWorkerStore) GetStaleWorkers(threshold time.Time) ([]*core.Worker, error) {
 	return nil, fmt.Errorf("store error")
 }
 

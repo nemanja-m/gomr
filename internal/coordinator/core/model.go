@@ -136,10 +136,19 @@ type JobFilter struct {
 	Offset int
 }
 
+type WorkerStatus string
+
+const (
+	WorkerStatusActive WorkerStatus = "ACTIVE"
+	WorkerStatusFailed WorkerStatus = "FAILED"
+)
+
 type Worker struct {
-	ID           uuid.UUID
-	Address      string
-	Capabilities WorkerCapabilities
+	ID              uuid.UUID
+	Address         string
+	Capabilities    WorkerCapabilities
+	Status          WorkerStatus
+	LastHeartbeatAt time.Time
 }
 
 type WorkerCapabilities struct {

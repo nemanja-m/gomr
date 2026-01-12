@@ -1,6 +1,10 @@
 package core
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // JobService defines the interface for job orchestration and management
 type JobService interface {
@@ -14,4 +18,7 @@ type JobService interface {
 // WorkerService defines the interface for worker management
 type WorkerService interface {
 	RegisterWorker(worker *Worker) error
+	RecordHeartbeat(workerID uuid.UUID) error
+	RemoveWorker(workerID uuid.UUID) error
+	GetStaleWorkers(timeout time.Duration) ([]*Worker, error)
 }

@@ -38,15 +38,15 @@ func main() {
 	}
 	defer client.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	regCtx, regCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer regCancel()
 
 	availableCPU := uint32(runtime.NumCPU())
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 	availableMemory := memStats.Sys
 
-	err = client.RegisterWorker(ctx, workerAddr, availableCPU, availableMemory)
+	heartbeatInterval, err := client.RegisterWorker(regCtx, workerAddr, availableCPU, availableMemory)
 	if err != nil {
 		logger.Fatal("Failed to register worker", "error", err)
 	}
@@ -56,11 +56,17 @@ func main() {
 		"worker_id", workerID.String(),
 		"cpu_cores", availableCPU,
 		"memory_bytes", availableMemory,
+		"heartbeat_interval_seconds", heartbeatInterval.Seconds(),
 	)
+
+	heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
+	go client.StartHeartbeat(heartbeatCtx, heartbeatInterval, logger)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+
+	heartbeatCancel()
 
 	logger.Info("Shutting down worker", "worker_id", workerID.String())
 }

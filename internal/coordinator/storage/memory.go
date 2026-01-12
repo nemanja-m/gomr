@@ -1,7 +1,9 @@
 package storage
 
 import (
+	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -154,4 +156,34 @@ func (s *InMemoryWorkerStore) GetAllWorkers() ([]*core.Worker, error) {
 		allWorkers = append(allWorkers, worker)
 	}
 	return allWorkers, nil
+}
+
+func (s *InMemoryWorkerStore) UpdateWorkerHeartbeat(id uuid.UUID, timestamp time.Time) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	worker, exists := s.workers[id]
+	if !exists {
+		return fmt.Errorf("worker not found: %s", id)
+	}
+	worker.LastHeartbeatAt = timestamp
+	return nil
+}
+
+func (s *InMemoryWorkerStore) RemoveWorker(id uuid.UUID) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.workers, id)
+	return nil
+}
+
+func (s *InMemoryWorkerStore) GetStaleWorkers(threshold time.Time) ([]*core.Worker, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var stale []*core.Worker
+	for _, worker := range s.workers {
+		if worker.LastHeartbeatAt.Before(threshold) {
+			stale = append(stale, worker)
+		}
+	}
+	return stale, nil
 }

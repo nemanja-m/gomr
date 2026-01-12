@@ -38,6 +38,7 @@ func main() {
 
 	workerService := service.NewWorkerService(storage.NewInMemoryWorkerStore(), logger)
 	grpcServer := grpc.NewServer(grpcServerAddr, enableGRPCReflection, workerService, logger)
+	healthChecker := service.NewWorkerHealthChecker(workerService, 5*time.Second, 15*time.Second, logger)
 
 	go func() {
 		logger.Info("Started REST server", "address", restServerAddr)
@@ -53,17 +54,22 @@ func main() {
 		}
 	}()
 
+	heartbeatCtx, heartbeatCancel := context.WithCancel(context.Background())
+	go healthChecker.Start(heartbeatCtx)
+
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
+	heartbeatCancel() // Stop health checker
+
 	logger.Info("Shutting down server")
 
 	// Give server 30 seconds to finish serving ongoing requests
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
 
-	if err := restServer.Shutdown(ctx); err != nil {
+	if err := restServer.Shutdown(shutdownCtx); err != nil {
 		logger.Fatal("Server forced to shutdown", "error", err)
 	}
 

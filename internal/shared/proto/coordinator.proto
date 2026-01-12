@@ -7,6 +7,7 @@ option go_package = "internal/shared/proto";
 
 service CoordinatorService {
     rpc RegisterWorker(RegisterWorkerRequest) returns (RegisterWorkerResponse);
+    rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 }
 
 // Worker registration
@@ -31,4 +32,14 @@ enum RegistrationStatus {
     BAD_REQUEST = 1;
     REJECTED = 2;
     FAILED = 3;
+}
+
+// Worker heartbeat
+
+message HeartbeatRequest {
+    string worker_id = 1;
+}
+
+message HeartbeatResponse {
+    bool acknowledged = 1;
 }

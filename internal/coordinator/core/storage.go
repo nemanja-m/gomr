@@ -1,6 +1,10 @@
 package core
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 type JobStore interface {
 	SaveJob(job *Job, tasks ...*Task) error
@@ -19,4 +23,7 @@ type WorkerStore interface {
 	AddWorker(worker *Worker) error
 	GetWorkerByID(id uuid.UUID) (*Worker, error)
 	GetAllWorkers() ([]*Worker, error)
+	UpdateWorkerHeartbeat(id uuid.UUID, timestamp time.Time) error
+	RemoveWorker(id uuid.UUID) error
+	GetStaleWorkers(threshold time.Time) ([]*Worker, error)
 }
