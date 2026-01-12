@@ -2,8 +2,10 @@ package grpc
 
 import (
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/nemanja-m/gomr/internal/coordinator/core"
@@ -25,7 +27,12 @@ func NewServer(
 	workerService core.WorkerService,
 	logger logging.Logger,
 ) *Server {
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+			MinTime:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
+	)
 
 	proto.RegisterCoordinatorServiceServer(grpcServer, NewCoordinatorService(workerService, logger))
 
@@ -46,8 +53,6 @@ func (s *Server) Start() error {
 	if err != nil {
 		return err
 	}
-
-	s.logger.Info("Coordinator gRPC server started", "address", s.addr)
 
 	return s.grpcServer.Serve(lis)
 }

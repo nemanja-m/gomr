@@ -46,7 +46,7 @@ func (s *CoordinatorService) RegisterWorker(
 		Address: req.Address,
 	}
 
-	s.logger.Info("Received worker registration", "worker_id", worker.ID.String(), "address", worker.Address)
+	s.logger.Debug("Received worker registration", "worker_id", worker.ID.String(), "address", worker.Address)
 
 	if err := s.workerService.RegisterWorker(worker); err != nil {
 		s.logger.Error("Failed to register worker", "worker_id", worker.ID.String(), "error", err)

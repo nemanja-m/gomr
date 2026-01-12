@@ -40,14 +40,14 @@ func main() {
 	grpcServer := grpc.NewServer(grpcServerAddr, enableGRPCReflection, workerService, logger)
 
 	go func() {
-		logger.Info("Starting coordinator API server", "address", restServerAddr)
+		logger.Info("Started REST server", "address", restServerAddr)
 		if err := restServer.ListenAndServe(); err != nil && err.Error() != "http: Server closed" {
-			logger.Fatal("Server error", "error", err)
+			logger.Fatal("REST server error", "error", err)
 		}
 	}()
 
 	go func() {
-		logger.Info("Starting coordinator gRPC server", "address", grpcServerAddr)
+		logger.Info("Started gRPC server", "address", grpcServerAddr)
 		if err := grpcServer.Start(); err != nil {
 			logger.Fatal("gRPC Server error", "error", err)
 		}

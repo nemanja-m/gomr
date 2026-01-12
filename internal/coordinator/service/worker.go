@@ -18,6 +18,5 @@ func NewWorkerService(workerStore core.WorkerStore, logger logging.Logger) core.
 }
 
 func (c *workerService) RegisterWorker(worker *core.Worker) error {
-	c.logger.Info("Registering worker", "worker_id", worker.ID.String(), "address", worker.Address)
 	return c.workerStore.AddWorker(worker)
 }

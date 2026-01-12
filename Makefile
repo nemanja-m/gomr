@@ -1,4 +1,4 @@
-.PHONY: genproto build build-local build-coordinator tools test clean run help
+.PHONY: genproto build build-local build-coordinator build-worker tools test clean run help
 
 BUILD_DIR=./bin
 CMD_DIR=./cmd
@@ -11,13 +11,14 @@ help:
 	@echo "  build              - Build all binaries"
 	@echo "  build-local        - Build the local binary"
 	@echo "  build-coordinator  - Build the coordinator binary"
+	@echo "  build-worker       - Build the worker binary"
 	@echo "  genproto           - Generate protobuf code"
 	@echo "  tools              - Install required protobuf tools"
 	@echo "  test               - Run all tests"
 	@echo "  clean              - Remove build artifacts"
 	@echo "  run                - Run the local binary (use ARGS variable for arguments)"
 
-build: build-local build-coordinator
+build: build-local build-coordinator build-worker
 
 build-local:
 	@mkdir -p $(BUILD_DIR)
@@ -26,6 +27,10 @@ build-local:
 build-coordinator: genproto
 	@mkdir -p $(BUILD_DIR)
 	go build -o $(BUILD_DIR)/coordinator $(CMD_DIR)/coordinator
+
+build-worker: genproto
+	@mkdir -p $(BUILD_DIR)
+	go build -o $(BUILD_DIR)/worker $(CMD_DIR)/worker
 
 genproto: tools
 	protoc \
